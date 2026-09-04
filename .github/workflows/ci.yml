@@ -95,6 +95,44 @@ jobs:
       # fails `npm test`, so a rule quietly changing meaning cannot pass unnoticed.
       - run: npm run oracle
 
+  package:
+    name: what would ship
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The OMG schemas must be in the tarball and the CC BY 3.0 corpus must not be.
+      - run: npm run pack-audit
+
+      # stdout carries JSON-RPC and nothing else. One console.log anywhere in the
+      # package corrupts the stream for every client, and the failure looks like a
+      # protocol bug rather than a stray debug line — so it is a build failure here.
+      - name: stdout is pure JSON-RPC
+        run: node packages/therblig/test/mcp-selftest.mjs
+
+      # bench/scorer/gates.mjs resolves the schemas from `third_party/omg`, a bare
+      # relative path that works only when the process starts at the repo root. In a
+      # published CLI that is an ENOENT, and xsdValid's catch turns it into "invalid"
+      # for every file on earth. Run the binary from somewhere else and check it still
+      # validates — this job exists for that one bug.
+      - name: the CLI works from outside the repo
+        shell: bash
+        run: |
+          set -e
+          REPO="$PWD"
+          cd "$(mktemp -d)"
+          node "$REPO/packages/therblig/src/cli/bin.mjs" verify "$REPO/bench/corpus/miwg/C.9.1.bpmn"
+          node "$REPO/packages/therblig/src/cli/bin.mjs" lint "$REPO/bench/corpus/miwg/A.1.0.bpmn"
+
   probes:
     name: probes (expected RED — measurement, not regression)
     runs-on: ubuntu-latest

@@ -55,6 +55,47 @@ product code depends on it.
 We publish the corrections because a preservation tool that hides its own preservation
 failures is worth nothing. Details and repro steps: [docs/FINDINGS.md](docs/FINDINGS.md).
 
+## Use it
+
+```bash
+claude mcp add therblig -- npx -y therblig-mcp --root .
+```
+
+Five tools, all read-only in this version:
+
+| tool | what it gives the model |
+|---|---|
+| `bpmn_read` | the file as a compact projection — nodes, flows, lanes, pools by id, no coordinates |
+| `bpmn_explain` | counts, control-flow complexity, and a Mermaid diagram |
+| `bpmn_lint` | what is wrong, the BPMN rule it breaks, and the fix |
+| `bpmn_verify` | does it parse and match the five OMG schemas |
+| `bpmn_patch` | previews an edit and reports anything that changed which you did not ask for |
+
+`bpmn_patch` takes `dry_run: true` and nothing else. It applies the operations to the
+parsed document in memory, places new elements next to their neighbours, runs the
+write-guard over the result, and reports — then throws the result away. Writing is the
+next version. The barrier runs on the preview so its calibration is measured before
+anything is at stake.
+
+Or from a terminal:
+
+```bash
+npx therblig lint orders.bpmn
+npx therblig explain orders.bpmn
+```
+
+```
+orders.bpmn
+  warning  Gateway in stock? has 1 outgoing flow. A gateway splits or joins, so it
+           needs 2 or more. Add the missing branch, or remove the gateway.
+
+1 file. 0 errors, 1 warning.
+```
+
+Every path is confined to `--root`: the extension is checked before the filesystem is
+touched, both sides are `realpath`'d so a symlink cannot lead out, and the containment
+test is case-insensitive on Windows. Those tests were written before the handler.
+
 ## Repo layout
 
 ```

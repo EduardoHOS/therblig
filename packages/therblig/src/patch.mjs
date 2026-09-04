@@ -5,6 +5,7 @@
 // here routes through linkFlow / unlinkFlow / retarget, which maintain both. See F8.
 import { walk, index } from './model.mjs';
 import { REVERSE, EVENT_DEF } from './ir.mjs';
+import { TherbligError } from './errors.mjs';
 
 // --- patch ops -------------------------------------------------------------
 // Deliberately four: add, set, del, connect. Anything more is where subtle
@@ -77,21 +78,21 @@ export function applyPatch({ moddle, definitions }, ops) {
     switch (op.op) {
       case 'add': {
         const type = REVERSE.get(op.type);
-        if (!type) throw new Error(`unknown node type "${op.type}"`);
+        if (!type) throw new TherbligError('THB_UNKNOWN_TYPE', `unknown node type "${op.type}"`);
         const container = byId.get(op.in);
-        if (!container) throw new Error(`container "${op.in}" not found`);
+        if (!container) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `container "${op.in}" not found`);
         const id = op.id && !byId.has(op.id) ? op.id : mintId(byId, op.id || op.name || op.type);
         const el = moddle.create(type, { id, ...(op.name ? { name: op.name } : {}) });
         if (op.event) {
           const defType = [...EVENT_DEF].find(([, v]) => v === op.event)?.[0];
-          if (!defType) throw new Error(`unknown event kind "${op.event}"`);
+          if (!defType) throw new TherbligError('THB_UNKNOWN_TYPE', `unknown event kind "${op.event}"`);
           const def = moddle.create(defType, {});
           def.$parent = el;
           el.eventDefinitions = [def];
         }
         if (op.on) {
           const host = byId.get(op.on);
-          if (!host) throw new Error(`boundary host "${op.on}" not found`);
+          if (!host) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `boundary host "${op.on}" not found`);
           el.attachedToRef = host;
           if (op.interrupting === false) el.cancelActivity = false;
         }
@@ -104,7 +105,7 @@ export function applyPatch({ moddle, definitions }, ops) {
         if (op.after || op.between) {
           const [a, b] = op.between ?? [op.after, null];
           const src = byId.get(a);
-          if (!src) throw new Error(`node "${a}" not found`);
+          if (!src) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `node "${a}" not found`);
           const existing = (container.flowElements || []).filter(
             (f) => f.$type === 'bpmn:SequenceFlow' && f.sourceRef?.id === a && (!b || f.targetRef?.id === b)
           );
@@ -125,14 +126,14 @@ export function applyPatch({ moddle, definitions }, ops) {
       }
       case 'set': {
         const el = byId.get(op.id);
-        if (!el) throw new Error(`element "${op.id}" not found`);
+        if (!el) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `element "${op.id}" not found`);
         for (const [k, v] of Object.entries(op.patch ?? {})) {
           if (k === 'if') {
             el.conditionExpression = v == null ? undefined : moddle.create('bpmn:FormalExpression', { body: v });
             if (el.conditionExpression) el.conditionExpression.$parent = el;
           } else if (k === 'default') {
             const target = byId.get(v);
-            if (v != null && !target) throw new Error(`default flow "${v}" not found`);
+            if (v != null && !target) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `default flow "${v}" not found`);
             el.default = target;
           } else if (k === 'documentation') {
             // bpmn:Documentation is a typed child collection, not a string attribute.
@@ -152,11 +153,11 @@ export function applyPatch({ moddle, definitions }, ops) {
             // id STRING where an element REFERENCE belongs and serialized
             // targetRef="undefined" — a silently corrupted graph that passed all five
             // gates. See FINDINGS.md F12 (D1).
-            throw new Error(
+            throw new TherbligError('THB_FORBIDDEN_FIELD',
               `"${k}" cannot be set directly — adjacency lives on both the flow and its ` +
               `endpoints, and writing one side corrupts the graph. Use connect/del instead.`);
           } else if (!SETTABLE.has(k)) {
-            throw new Error(
+            throw new TherbligError('THB_FORBIDDEN_FIELD',
               `"${k}" is not settable. Allowed: ${[...SETTABLE].sort().join(', ')}. ` +
               `A closed list is deliberate: the open fallthrough it replaces wrote any ` +
               `key verbatim onto the moddle object, which is how D1 and D2 happened.`);
@@ -167,7 +168,7 @@ export function applyPatch({ moddle, definitions }, ops) {
       }
       case 'del': {
         const el = byId.get(op.id);
-        if (!el) throw new Error(`element "${op.id}" not found`);
+        if (!el) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `element "${op.id}" not found`);
         const container = el.$parent;
         const kill = new Set([el]);
         // cascade: flows touching it, and boundary events attached to it
@@ -193,8 +194,8 @@ export function applyPatch({ moddle, definitions }, ops) {
       }
       case 'connect': {
         const from = byId.get(op.from), to = byId.get(op.to);
-        if (!from) throw new Error(`source "${op.from}" not found`);
-        if (!to) throw new Error(`target "${op.to}" not found`);
+        if (!from) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `source "${op.from}" not found`);
+        if (!to) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `target "${op.to}" not found`);
         if (op.remove) {
           for (const f of [...walk(definitions)]) {
             if (f.$type === 'bpmn:SequenceFlow' && f.sourceRef === from && f.targetRef === to) {
@@ -222,7 +223,7 @@ export function applyPatch({ moddle, definitions }, ops) {
         break;
       }
       default:
-        throw new Error(`unknown op "${op.op}"`);
+        throw new TherbligError('THB_UNKNOWN_TYPE', `unknown op "${op.op}"`);
     }
   }
   // Semantics and diagram are one document. `del` used to remove the element and
