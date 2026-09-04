@@ -72,7 +72,7 @@ ships broken diagrams, so coverage is the gate — not "no exception thrown".
 | incomplete — silent partial layout | **8 / 22** |
 | hard crash | **1 / 22** |
 
-Worst case `C.4.0`: **55 of 107 elements got no DI**, losing 3 of 4 participants
+Worst case `C.4.0`: **52 of 107 elements got no DI**, losing 3 of 4 participants
 and everything inside them — with **zero warnings emitted**.
 
 Confirmed against three input variants (raw, normalized, DI-stripped) with
@@ -93,6 +93,24 @@ Failure modes, by cause:
 **The `warnings` channel does not reliably signal loss.** `C.4.0` lost 52 elements
 and reported none. Any pipeline that relies on this package must run its own
 coverage check.
+
+### Version scope (added 2026-09-04)
+
+Every number above is a measurement of **`bpmn-auto-layout@2.0.0-alpha.2`**, published
+2026-07-24. Verified today: that is still the newest published build — npm dist-tags are
+`latest: 1.3.0` (2026-03-11) and `next: 2.0.0-alpha.2` — so the finding is current, but
+it is a fact about one unreleased alpha and must be cited that way in public. Upstream
+work landed after that publish is unmeasured here.
+
+The deeper claim is version-independent and is the one worth repeating: **the `warnings`
+channel does not signal loss.** That is a property of the package's error contract, not
+of which BPMN constructs it happens to support this month. Any pipeline depending on it
+must run its own coverage check regardless of version.
+
+Two supply-chain facts, also verified today: the published tarball ships **no LICENSE
+file** (`node_modules/bpmn-auto-layout/` contains none), and its only grant is the
+string `"license": "MIT"` in `package.json`. Since no published version has ever shipped
+one, downgrading to the `latest` stable 1.3.0 is **not** a mitigation for that.
 
 ### Why this reshapes the product
 
@@ -126,7 +144,7 @@ would penalise it for the input file's pre-existing sins.
 
 ## F6 — the real reason for the Node 22.12 floor
 
-**2026-09-01**
+**2026-09-01, re-checked 2026-09-04**
 
 `bpmnlint@11.13.0` is CommonJS and `require()`s `min-dash@5`, which is ESM-only.
 On Node 20.10 that is a hard `ERR_REQUIRE_ESM`. It works on Node 22.12+ only
@@ -135,6 +153,22 @@ because that release enables `require(esm)` by default.
 `bpmn-auto-layout@2.0.0-alpha.2` declares `engines: { node: ">= 18" }` and does in
 fact run correctly on Node 20.10 — so the Node floor comes from bpmnlint, not from
 the layouter as previously assumed.
+
+**2026-09-04 re-check.** Both halves reproduce exactly. On Node 20.10:
+`import('bpmnlint/lib/linter.js')` throws `ERR_REQUIRE_ESM` on `min-dash/dist/index.js`;
+`import('bpmn-auto-layout')` resolves cleanly and exports `LayoutError`,
+`LayoutWarning`, `layoutProcess`. On Node 22.20, `bench/scorer/gates.mjs` imports fine.
+
+One correction to the *reasoning*, which does not change the number. `bpmnlint@11.13.0`
+itself declares `engines: { node: ">= 20" }`, and Node's changelog puts the unflagging
+of `require(esm)` at **20.19.0**, not 22.12 — so the floor this dependency chain
+strictly forces is 20.19. (Measured here: 20.10 fails, 22.20 works. The 20.19 boundary
+itself is not measured on this machine.)
+
+**So 22.12 is a chosen floor, not a forced one** — it is where `require(esm)` is
+unflagged on the 22 LTS line — and it should be stated as a choice. A claim considered
+and rejected on the evidence: that `bpmn-auto-layout` 2.x forces 22.12. The installed
+package declares `>= 18` and imports successfully on 20.10, as above.
 
 ## F7 — the OMG XSDs validate the whole corpus
 
@@ -171,9 +205,10 @@ Fixed by routing every mutation through `linkFlow` / `unlinkFlow` / `retarget`, 
 maintain both sides. Worth stating as a product invariant, not just a bug fix: no code
 path may set `sourceRef` or `targetRef` directly.
 
-## F9 — "made room" and "reflowed" are distinguishable, and that is the right gate
+## F9 — "made room" and "reflowed" are distinguishable — **SUPERSEDED by F11**
 
 **2026-09-01 · `bench/scorer/gates.mjs`, `bench/arms/place.mjs`**
+**Superseded 2026-09-04. The distinction below is sound. The measurement was not.**
 
 Inserting a node into a tight gap has to move downstream shapes — demanding zero
 movement would be demanding overlapping diagrams. But making room is a **rigid
@@ -182,14 +217,124 @@ them into many different deltas.
 
 So gate 5 tests `distinctDeltas <= 1`, not `shapesMoved === 0`.
 
-Measured on incremental placement across four real files:
+Measured on incremental placement across four real files. The final column was added
+on 2026-09-04 by `bench/probe/probe-labels.mjs` and did not exist when this table was
+first published:
 
-| file | shapes moved | distinct deltas | verdict |
-|---|---|---|---|
-| `handmade/zeebe-roundtrip` | 2 / 4 | 1 | made room |
-| `miwg/C.9.1` | 0 / 11 | 0 | gap was wide enough |
-| `miwg/C.9.0` | 17 / 26 | 1 | made room |
-| `miwg/A.1.0` | 3 / 5 | 1 | made room |
+| file | shapes moved | distinct deltas | verdict | **labels left behind** |
+|---|---|---|---|---|
+| `handmade/zeebe-roundtrip` | 2 / 4 | 1 | made room | **0** |
+| `miwg/C.9.1` | 0 / 11 | 0 | gap was wide enough | **0** |
+| `miwg/C.9.0` | 17 / 26 | 1 | made room | **9** |
+| `miwg/A.1.0` | 3 / 5 | 1 | made room | **3** |
 
 All four stayed XSD-valid, `bpmnlint:correctness`-clean, introduced no new style
-errors, and ended at 100% DI coverage.
+errors, and ended at 100% DI coverage — and two of the four silently detached every
+external label on every shape that moved. See F11.
+
+## F10 — moddle silently drops the XML constructs it does not model
+
+**2026-09-04 · `bench/probe/probe-conserve.mjs`**
+
+`moddle-xml` registers saxen handlers for `openTag`, `question`, `closeTag`, `cdata`,
+`text`, `error` and `warn` — and never for `comment` or `attention`. So XML comments,
+DOCTYPE declarations and every processing instruction other than the XML declaration
+are discarded on every round-trip.
+
+| measure | result |
+|---|---|
+| corpus files carrying a comment, DOCTYPE or PI | **1 / 22** (`C.3.0`) |
+| of those, losing it on round-trip | **1 / 1** |
+| parser warnings emitted about the loss | **0** |
+| position of the lost construct | **header** (exporter banner, before the root element) |
+
+**The finding that matters is not the loss — it is that ADR-001's stated guard could
+not detect its own reversal condition.** ADR-001 says it reverses if "we find a file
+where moddle silently drops content on round-trip", and names F2's profile as the
+guard. F2 compares a *semantic tally of elements*. A comment was never an element, so
+that comparison is structurally incapable of seeing this. The file was in the corpus
+the whole time.
+
+Incidence here is n=1 and cosmetic, which is why ADR-004 gains a warn-never-refuse
+clause rather than a refusal: the naive text-editing baseline preserves comments for
+free, so refusing would make the structured path strictly worse than the arm it has to
+beat. Real-world incidence over public repositories is the deciding measurement and is
+not yet taken.
+
+**Standing consequence:** every ADR's reversal guard must be re-read for whether it can
+actually detect the condition it claims to watch for.
+
+## F11 — gate 5 could not see the damage the placement code causes
+
+**2026-09-04 · `bench/probe/probe-labels.mjs`. Supersedes F9.**
+
+Two independent blind spots line up exactly:
+
+1. `boundsList()` (`gates.mjs:114`) is a lazy regex —
+   `/<BPMNShape[^>]*bpmnElement="([^"]+)"[\s\S]*?<Bounds[^>]*x=…/` — so it captures the
+   **first** `<Bounds>` after each shape's opening tag. In BPMN DI the shape's own
+   `dc:Bounds` always precedes its `<bpmndi:BPMNLabel><dc:Bounds>`, so label bounds are
+   never captured *by construction*.
+2. The make-room loop (`place.mjs:107-110`) translates `di.bounds.x` and nothing else.
+
+So when placement makes room, every affected external label stays where it was while
+its shape slides out from under it — and gate 5 reports `rigid: true`.
+
+Re-measuring F9's own four files off the moddle tree instead of the regex:
+
+| file | shapes moved | distinct deltas | gate 5 said | labels detached |
+|---|---|---|---|---|
+| `handmade/zeebe-roundtrip` | 2 / 4 | 1 | rigid ✓ | 0 |
+| `miwg/C.9.1` | 0 / 11 | 0 | rigid ✓ | 0 |
+| `miwg/C.9.0` | 17 / 26 | 1 | rigid ✓ | **9** |
+| `miwg/A.1.0` | 3 / 5 | 1 | rigid ✓ | **3** |
+
+Twelve labels left behind across four files published as clean. Every detached element
+is an event (`EndMessageEvent_Timeout`, `EndEvent_ApplicationIssued`, …), which is
+consistent rather than coincidental: BPMN renders task labels inside the shape, so a
+task has no separate `BPMNLabel` bounds to strand, while events and gateways carry
+theirs outside.
+
+**The general lesson is worth more than the bug.** F9 is the project's headline
+preservation claim, and it was produced by an instrument structurally blind to the
+failure mode it was built to detect — a regex reading serialized text, checking a
+property of a tree. The fix is two lines. The process failure is that a gate and the
+code it grades were written together, from the same mental model, by the same author.
+Hence M1's oracle: the thing that guards a write is built separately from the thing
+that scored the benchmark.
+
+## F12 — four defects in the arm-C prototype
+
+**2026-09-04 · `bench/probe/probe-invariants.mjs`**
+
+| # | defect | observed |
+|---|---|---|
+| D1 | `set {targetRef}` | the `set` fallthrough (`ir.mjs:232`) assigns any key verbatim, so an id **string** lands where moddle expects an element **reference** and serializes as `targetRef="undefined"` |
+| D2 | `set {documentation}` | same fallthrough; `bpmn:Documentation` is a typed child collection, so a bare string throws `Cannot read properties of undefined (reading 'isGeneric')` on serialize |
+| D3 | `del` orphans DI | deleting `Review` leaves 3 DI elements pointing at removed elements, and `diCoverage` reports **100% covered** because it only checks elements→DI, never DI→elements |
+| D4 | `placeNew(container)` | `del` adds the **container** id to `changed` (`ir.mjs:260`), so the obvious `placeNew([...changed, ...created])` mints `<BPMNShape bpmnElement="Payment">` for the `bpmn:Process` itself |
+
+D1 is the sharpest: F8 already states as a product invariant that "no code path may set
+`sourceRef` or `targetRef` directly", and nothing enforced it. All five gates pass a
+document containing `targetRef="undefined"`.
+
+## F13 — the bpmn-js quarantine could be bypassed eight ways
+
+**2026-09-04 · `scripts/licence-guard.mjs`**
+
+ADR-009's guard was `for pkg in bpmn-js dmn-js form-js cmmn-js; do [ -d node_modules/$pkg ]`.
+
+- **One false positive.** Unscoped `form-js` on npm is an unrelated MIT package. Any
+  install of it failed the build for no reason.
+- **Eight false negatives.** `@bpmn-io/form-js`, `-viewer`, `-editor`,
+  `-carbon-styles` and `dmn-js-drd`, `-decision-table`, `-literal-expression`,
+  `-shared` all carry the watermark clause and were never checked.
+
+Verified: installing `@bpmn-io/form-js-viewer@1.26.0` passes the old check and fails
+the new one twice over — its declared SPDX is `SEE LICENSE IN LICENSE`, and its
+`LICENSE` text matches `/watermark/i`.
+
+The ADR's stated rationale was also wrong. The bpmn.io licence names **no packages at
+all**; it attaches the obligation to the watermark itself. So the guard now checks SPDX
+ids and licence text across the installed production tree (21 packages, 1 dated
+exception: `cli-table@0.3.11` ships MIT text with no `license` field).

@@ -16,8 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 22.12 is the floor: bpmnlint CommonJS-requires an ESM-only min-dash,
-        # which only resolves where require(esm) is enabled. See docs/FINDINGS.md F6.
+        # 22.12 is the runtime floor. F6 attributed it to bpmnlint alone; that is only
+        # half right — require(esm) has been unflagged since 20.19, and the hard 22.12
+        # comes from bpmn-auto-layout 2.x. See ADR-007 as amended.
         node: ['22.12', '22', '24']
         os: [ubuntu-latest, windows-latest]
     steps:
@@ -29,6 +30,25 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  engine-floor:
+    name: engine floor is enforced, not declared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.10'
+      # The machine that produced F1-F9 was running Node 20.10 against a declared
+      # >=22.12 floor, with no .npmrc. An outside reproducer must fail loudly rather
+      # than silently measure something else, so the failure itself is the test.
+      - name: npm ci must refuse to install under Node 20
+        run: |
+          if npm ci; then
+            echo "::error::npm ci succeeded on Node 20 — engine-strict is not in effect."
+            exit 1
+          fi
+          echo "npm ci refused under Node 20, as intended (EBADENGINE)."
+
   licence-guard:
     name: licence guard
     runs-on: ubuntu-latest
@@ -36,24 +56,26 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # The bpmn.io licence is not OSI-approved: it requires a visible watermark on
-      # rendered diagrams. Keeping the core free of those four packages is the whole
-      # enterprise-procurement argument, so it is enforced, not trusted. See ADR-009.
-      - name: no watermark-licensed packages in the dependency tree
+      # ADR-009 as amended. The bpmn.io licence names no packages — it attaches the
+      # obligation to the watermark — so this checks SPDX ids and licence text over
+      # the installed production tree, not a hardcoded list of four names.
+      - run: npm run licence-guard
+
+      # A guard that has never been seen to fail is not known to work. Installing a
+      # package that genuinely carries the clause must turn this job red. The old
+      # name loop passed this exact case: it tested for `form-js`, and the watermarked
+      # package is `@bpmn-io/form-js-viewer`.
+      - name: guard rejects a watermark-licensed package
         run: |
-          set -e
-          found=0
-          for pkg in bpmn-js dmn-js form-js cmmn-js; do
-            if [ -d "node_modules/$pkg" ]; then
-              echo "::error::$pkg is present in the dependency tree. It carries the"
-              echo "::error::bpmn.io watermark licence and must not appear in the core."
-              found=1
-            fi
-          done
-          exit $found
+          npm i --no-save --no-audit --no-fund @bpmn-io/form-js-viewer
+          if npm run licence-guard; then
+            echo "::error::guard passed a package carrying the bpmn.io watermark clause."
+            exit 1
+          fi
+          echo "guard correctly rejected @bpmn-io/form-js-viewer."
 
   corpus-integrity:
     name: corpus integrity
@@ -62,9 +84,35 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       # Every reference model must still parse and validate. If this breaks, either a
       # dependency regressed or a fixture was modified in place — both are serious.
-      - run: node bench/scorer/baseline.mjs bench/corpus
+      - run: npm run bench:baseline
+
+  probes:
+    name: probes (expected RED until M1)
+    runs-on: ubuntu-latest
+    # These assert CORRECT behaviour against defects that are not fixed yet, so they
+    # fail on purpose. They are visible rather than blocking, and M1's exit criterion
+    # is deleting continue-on-error and folding them into `npm test`.
+    #
+    # Expected as of 2026-09-04:
+    #   probe-labels      12 labels left behind (C.9.0 9/17, A.1.0 3/3)  -> F9 superseded
+    #   probe-invariants  0 passed, 5 failed                             -> D1-D4
+    #   probe-conserve    1 construct lost (C.3.0, header position)      -> F10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run probe:labels
+        continue-on-error: true
+      - run: npm run probe:invariants
+        continue-on-error: true
+      - run: npm run probe:conserve
+        continue-on-error: true
