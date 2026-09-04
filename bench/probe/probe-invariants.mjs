@@ -77,11 +77,18 @@ await check('del leaves no BPMNShape pointing at a removed element', async () =>
   assert(orphans.length === 0, `${orphans.length} orphaned DI element(s): ${orphans.join(', ')}`);
 });
 
-await check('diCoverage notices the orphan (DI->elements, not just elements->DI)', async () => {
+await check('diCoverage notices an orphan (DI->elements, not just elements->DI)', async () => {
   const doc = await parse(src);
-  applyPatch(doc, [{ op: 'del', id: 'Review' }]);
+  // Built by hand, NOT via applyPatch: applyPatch now prunes DI itself, so it can no
+  // longer produce an orphan. What is under test here is the detector, not the op —
+  // so remove the element behind moddle's back and leave its shape on the plane.
+  const proc = doc.definitions.rootElements.find((r) => r.$type === 'bpmn:Process');
+  const victim = proc.flowElements.findIndex((f) => f.id === 'Review');
+  assert(victim >= 0, 'fixture changed: no element "Review"');
+  proc.flowElements.splice(victim, 1);
   const cov = diCoverage(doc.definitions);
   assert(!cov.ok, 'diCoverage reported 100% coverage over a document containing orphaned DI');
+  assert(cov.orphans.some((o) => o.id === 'Review'), `orphan not named: ${JSON.stringify(cov.orphans)}`);
 });
 
 console.log('\nD4 — placement must never mint a shape for a container');

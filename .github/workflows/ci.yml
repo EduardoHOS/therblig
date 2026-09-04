@@ -92,16 +92,14 @@ jobs:
       - run: npm run bench:baseline
 
   probes:
-    name: probes (expected RED until M1)
+    name: probes (expected RED — measurement, not regression)
     runs-on: ubuntu-latest
-    # These assert CORRECT behaviour against defects that are not fixed yet, so they
-    # fail on purpose. They are visible rather than blocking, and M1's exit criterion
-    # is deleting continue-on-error and folding them into `npm test`.
-    #
-    # Expected as of 2026-09-04:
-    #   probe-labels      12 labels left behind (C.9.0 9/17, A.1.0 3/3)  -> F9 superseded
-    #   probe-invariants  0 passed, 5 failed                             -> D1-D4
-    #   probe-conserve    1 construct lost (C.3.0, header position)      -> F10
+    # probe-labels and probe-invariants moved into `npm test` when M1 fixed what they
+    # measure, so they now block like any other test. What is left here is the probe
+    # whose finding is a DECISION rather than a bug: ADR-004 chose warn-and-proceed on
+    # comment loss, so probe-conserve is expected to fail and must not gate the build.
+    # It stays visible because the day moddle-xml registers a comment handler, this
+    # turning green is how we find out.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -110,9 +108,5 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run probe:labels
-        continue-on-error: true
-      - run: npm run probe:invariants
-        continue-on-error: true
-      - run: npm run probe:conserve
+      - run: npm run probe
         continue-on-error: true

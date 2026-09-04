@@ -303,6 +303,37 @@ code it grades were written together, from the same mental model, by the same au
 Hence M1's oracle: the thing that guards a write is built separately from the thing
 that scored the benchmark.
 
+### Resolved 2026-09-04 (M1)
+
+`translateShape(di, dx)` moves `di.bounds` and `di.label.bounds` together, and
+`translateEdge` does the same for waypoints and edge labels. Re-measured:
+
+| file | shapes moved | distinct deltas | labels detached |
+|---|---|---|---|
+| `handmade/zeebe-roundtrip` | 2 / 4 | 1 | **0** |
+| `miwg/C.9.1` | 0 / 11 | 0 | **0** |
+| `miwg/C.9.0` | 13 / 26 | 1 | **0** |
+| `miwg/A.1.0` | 3 / 5 | 1 | **0** |
+
+C.9.0 moved **13** shapes where it previously moved 17. That is the second half of the
+fix, not a coincidence: the make-room loop used to run over the whole document with a
+bare `di.bounds.x >= next.x` test, so inserting into one pool translated shapes in every
+other pool and on every other plane that happened to sit to the right. It is now scoped
+to the plane being drawn on and the container being edited, and pools and lanes are
+never translated at all — their geometry derives from their contents, so a pool that
+ends up too narrow needs resizing, which is a separate and still-open limitation.
+
+**Gate 5 was not fixed and still cannot see labels.** That is deliberate. The gate is
+the benchmark's scorer; `bench/probe/probe-labels.mjs` is what holds this property, and
+it is in `npm test`. The write-guard that M3 needs is the oracle, built separately.
+
+One correction to the probe itself. DI coordinates are doubles straight from the
+exporter — A.1.0's labels sit at `x=395.3333333333333` — so an exact translation by
++151 reads back as `150.99999999999994`, and the first green run still reported one
+detached label on A.1.0. That was the instrument, not the code. Deltas are now compared
+rounded to 0.01px, far below anything a renderer can show. A probe that cries wolf costs
+the same trust as one that misses the real thing.
+
 ## F12 — four defects in the arm-C prototype
 
 **2026-09-04 · `bench/probe/probe-invariants.mjs`**
@@ -317,6 +348,30 @@ that scored the benchmark.
 D1 is the sharpest: F8 already states as a product invariant that "no code path may set
 `sourceRef` or `targetRef` directly", and nothing enforced it. All five gates pass a
 document containing `targetRef="undefined"`.
+
+### Resolved 2026-09-04 (M1)
+
+All four fixed; `bench/probe/probe-invariants.mjs` is now in `npm test`.
+
+The common cause of D1 and D2 was one line — `else el[k] = v` — which wrote any key
+verbatim onto the moddle object. `set` now takes a **closed allowlist**. Adjacency
+fields (`sourceRef`, `targetRef`, `incoming`, `outgoing`, `attachedToRef`,
+`flowNodeRef`) are refused by name with an explanation, which turns F8's stated
+invariant into something enforced rather than merely written down. `id` is refused for
+the same reason ADR-002 gives: the human has the file open in a modeller showing that
+id. `documentation` is constructed as the typed child collection it is.
+
+D3 is pruned in `applyPatch` rather than in the `del` branch, so the guarantee is
+structural — no op, present or future, can leave orphaned DI. `diCoverage` now answers
+both directions and returns `orphans` alongside `missing`.
+
+D4 is fixed by filtering `placeNew`'s id list through the types it can actually place,
+so passing it a container is a no-op instead of minting a shape for a `bpmn:Process`.
+
+A note on testing D3. Once `applyPatch` prunes, the original probe could no longer
+construct an orphan through it, and the assertion silently became a test of nothing.
+It now removes the element behind moddle's back and leaves the shape on the plane,
+because what is under test is the detector, not the op.
 
 ## F13 — the bpmn-js quarantine could be bypassed eight ways
 

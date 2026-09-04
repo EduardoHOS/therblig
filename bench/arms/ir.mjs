@@ -165,6 +165,26 @@ function retarget(flow, to) {
   if (!to.incoming.includes(flow)) to.incoming.push(flow);
 }
 
+// What `set` may write. Closed on purpose. The open fallthrough this replaces
+// assigned any key straight onto the moddle object, so a caller could put a string
+// where an element reference belongs (D1) or a string where a typed child collection
+// belongs (D2), and neither failed until serialize — or, worse, didn't fail at all.
+// `if`, `default` and `documentation` are handled separately because each needs a
+// typed construction rather than an assignment.
+const SETTABLE = new Set([
+  'name', 'if', 'default', 'documentation',
+  'isExecutable', 'isForCompensation', 'isInterrupting', 'cancelActivity',
+  'triggeredByEvent', 'completionQuantity', 'startQuantity',
+]);
+
+// Rejected with an explanation rather than silently mangled. `id` is here because
+// ADR-002 carries original ids verbatim: renaming one breaks every reference to it,
+// and the human has the file open in a modeller that shows that id.
+const ADJACENCY = new Set([
+  'sourceRef', 'targetRef', 'incoming', 'outgoing',
+  'attachedToRef', 'flowNodeRef', 'id', '$type', '$parent',
+]);
+
 export function applyPatch({ moddle, definitions }, ops) {
   const byId = index(definitions);
   const changed = new Set();
@@ -228,7 +248,35 @@ export function applyPatch({ moddle, definitions }, ops) {
             el.conditionExpression = v == null ? undefined : moddle.create('bpmn:FormalExpression', { body: v });
             if (el.conditionExpression) el.conditionExpression.$parent = el;
           } else if (k === 'default') {
-            el.default = byId.get(v);
+            const target = byId.get(v);
+            if (v != null && !target) throw new Error(`default flow "${v}" not found`);
+            el.default = target;
+          } else if (k === 'documentation') {
+            // bpmn:Documentation is a typed child collection, not a string attribute.
+            // The old fallthrough assigned the bare string and moddle threw
+            // "Cannot read properties of undefined (reading 'isGeneric')" at serialize
+            // time — after the edit had already been applied. See FINDINGS.md F12 (D2).
+            if (v == null || v === '') el.documentation = undefined;
+            else {
+              const doc = moddle.create('bpmn:Documentation', { text: String(v) });
+              doc.$parent = el;
+              el.documentation = [doc];
+            }
+          } else if (ADJACENCY.has(k)) {
+            // F8 states as a product invariant that no code path may set sourceRef or
+            // targetRef directly, because adjacency lives in two places and moddle
+            // maintains only one. Nothing enforced it: `set {targetRef: 'X'}` put an
+            // id STRING where an element REFERENCE belongs and serialized
+            // targetRef="undefined" — a silently corrupted graph that passed all five
+            // gates. See FINDINGS.md F12 (D1).
+            throw new Error(
+              `"${k}" cannot be set directly — adjacency lives on both the flow and its ` +
+              `endpoints, and writing one side corrupts the graph. Use connect/del instead.`);
+          } else if (!SETTABLE.has(k)) {
+            throw new Error(
+              `"${k}" is not settable. Allowed: ${[...SETTABLE].sort().join(', ')}. ` +
+              `A closed list is deliberate: the open fallthrough it replaces wrote any ` +
+              `key verbatim onto the moddle object, which is how D1 and D2 happened.`);
           } else el[k] = v;
         }
         changed.add(op.id);
@@ -294,5 +342,34 @@ export function applyPatch({ moddle, definitions }, ops) {
         throw new Error(`unknown op "${op.op}"`);
     }
   }
-  return { changed: [...changed], created };
+  // Semantics and diagram are one document. `del` used to remove the element and
+  // leave its BPMNShape on the plane pointing at nothing — a file that still parses,
+  // still validates against the XSD, and that diCoverage called 100% covered because
+  // it only ever asked elements->DI. Pruning here rather than in the `del` branch
+  // makes it structural: no op can leave orphaned DI behind, present or future.
+  // See FINDINGS.md F12 (D3).
+  const prunedDI = pruneDI(definitions);
+  return { changed: [...changed], created, prunedDI };
+}
+
+/**
+ * Drop DI whose bpmnElement no longer exists in the tree.
+ * Lives here rather than in place.mjs because place.mjs imports from this module,
+ * and the reverse would be a cycle.
+ */
+export function pruneDI(definitions) {
+  const live = index(definitions);
+  const removed = [];
+  for (const el of walk(definitions)) {
+    if (el.$type !== 'bpmndi:BPMNPlane' || !el.planeElement) continue;
+    for (let i = el.planeElement.length - 1; i >= 0; i--) {
+      const target = el.planeElement[i].bpmnElement;
+      const targetId = typeof target === 'string' ? target : target?.id;
+      if (targetId && !live.has(targetId)) {
+        el.planeElement.splice(i, 1);
+        removed.push(targetId);
+      }
+    }
+  }
+  return removed;
 }

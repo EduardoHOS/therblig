@@ -15,14 +15,14 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "test": "node bench/arms/ir-selftest.mjs && node bench/arms/place-selftest.mjs",
+    "test": "node bench/arms/ir-selftest.mjs && node bench/arms/place-selftest.mjs && node bench/probe/probe-labels.mjs && node bench/probe/probe-invariants.mjs",
     "bench:profile": "node bench/corpus/profile.mjs bench/corpus",
     "bench:diff-floor": "node bench/corpus/probe-diff-floor.mjs bench/corpus",
     "bench:layout": "node bench/scorer/probe-layout.mjs bench/corpus",
     "bench:baseline": "node bench/scorer/baseline.mjs bench/corpus",
     "bench:roundtrip": "node bench/scorer/probe-roundtrip.mjs bench/corpus/handmade/zeebe-roundtrip.bpmn",
     "inventory": "node bench/tasks/inventory.mjs bench/corpus",
-    "probe": "node bench/probe/probe-labels.mjs; node bench/probe/probe-invariants.mjs; node bench/probe/probe-conserve.mjs bench/corpus",
+    "probe": "node bench/probe/probe-conserve.mjs bench/corpus",
     "probe:labels": "node bench/probe/probe-labels.mjs",
     "probe:invariants": "node bench/probe/probe-invariants.mjs",
     "probe:conserve": "node bench/probe/probe-conserve.mjs bench/corpus",

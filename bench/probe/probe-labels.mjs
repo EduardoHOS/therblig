@@ -54,7 +54,13 @@ function snapshot(definitions) {
   return m;
 }
 
-const d = (a, b) => `${b.x - a.x},${b.y - a.y}`;
+// Deltas are rounded before comparison. DI coordinates are doubles straight out of
+// the exporter — A.1.0 labels sit at x=395.3333333333333 — so an exact translation by
+// +151 reads back as 150.99999999999994 and an exact-equality test calls a correctly
+// moved label detached. Rounding to 0.01px is far below anything a renderer can show,
+// and a probe that cries wolf costs the same trust as one that misses the real thing.
+const r2 = (n) => Math.round(n * 100) / 100;
+const d = (a, b) => `${r2(b.x - a.x)},${r2(b.y - a.y)}`;
 const ZERO = '0,0';
 
 let anyDetached = 0;
@@ -118,7 +124,13 @@ for (const r of table) {
 }
 
 console.log(`\n${anyDetached} label(s) left behind across the four files F9 published as clean.`);
-console.log('gate 5 called every one of these a rigid translation, because boundsList()');
-console.log('never reads a BPMNLabel and the make-room loop never moves one.');
-console.log(`\nverdict: ${anyDetached === 0 ? 'LABELS TRAVEL WITH THEIR SHAPES' : 'F9 SUPERSEDED — expected RED until M1 translateShape lands'}`);
+if (anyDetached) {
+  console.log('gate 5 calls every one of these a rigid translation, because boundsList()');
+  console.log('never reads a BPMNLabel and the make-room loop never moves one.');
+  console.log('\nverdict: F9 SUPERSEDED — RED until translateShape lands');
+} else {
+  console.log('Gate 5 still cannot see this — boundsList() never reads a BPMNLabel. It reports');
+  console.log('rigid either way, so this probe, not the gate, is what holds the property.');
+  console.log('\nverdict: LABELS TRAVEL WITH THEIR SHAPES');
+}
 process.exit(anyDetached === 0 ? 0 : 1);

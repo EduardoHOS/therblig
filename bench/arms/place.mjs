@@ -19,6 +19,21 @@ const SIZE = {
 const DEFAULT_SIZE = [100, 80];
 const GAP = 50;
 
+// What needs DI at all. Declared above placeNew because placeNew must filter its own
+// id list through it: `del` reports the CONTAINER id in `changed` (ir.mjs), so the
+// obvious placeNew([...changed, ...created]) used to mint a
+// <BPMNShape bpmnElement="SomeProcess"> for the bpmn:Process itself — and all five
+// gates passed it. See FINDINGS.md F12 (D4).
+const NEEDS_SHAPE = /^bpmn:(Start|End|Boundary|IntermediateCatch|IntermediateThrow)Event$|^bpmn:(User|Service|Script|Manual|Send|Receive|BusinessRule)?Task$|^bpmn:(Sub|AdHocSub)Process$|^bpmn:Transaction$|^bpmn:CallActivity$|^bpmn:(Exclusive|Parallel|Inclusive|EventBased|Complex)Gateway$|^bpmn:Participant$|^bpmn:Lane$/;
+const NEEDS_EDGE = /^bpmn:(SequenceFlow|MessageFlow)$/;
+
+// placeNew can position a flow node next to its neighbours. It cannot meaningfully
+// position a pool or a lane — those are containers whose geometry derives from what
+// they hold — so it declines them rather than guessing.
+const PLACEABLE_SHAPE = /^bpmn:(Start|End|Boundary|IntermediateCatch|IntermediateThrow)Event$|^bpmn:(User|Service|Script|Manual|Send|Receive|BusinessRule)?Task$|^bpmn:(Sub|AdHocSub)Process$|^bpmn:Transaction$|^bpmn:CallActivity$|^bpmn:(Exclusive|Parallel|Inclusive|EventBased|Complex)Gateway$/;
+
+const CONTAINER = /^bpmn:(Process|SubProcess|Transaction|AdHocSubProcess|Collaboration)$/;
+
 function sizeOf(el) {
   return SIZE[el.$type] ?? DEFAULT_SIZE;
 }
@@ -60,8 +75,41 @@ function planeFor(planes, byElement, el) {
   return planes[0] ?? null;
 }
 
+// The process, sub-process or collaboration an element lives in. Two elements with
+// different containers are in different pools or different sub-process bodies, and
+// making room in one must not move the other.
+function containerIdOf(el) {
+  let p = el?.$parent;
+  while (p && !CONTAINER.test(p.$type)) p = p.$parent;
+  return p?.id ?? null;
+}
+
 function bounds(di) {
   return di?.bounds ? { x: di.bounds.x, y: di.bounds.y, w: di.bounds.width, h: di.bounds.height } : null;
+}
+
+/**
+ * Move a shape and its label together.
+ *
+ * A BPMN label is a separate <bpmndi:BPMNLabel><dc:Bounds> beside the shape's own
+ * bounds, not a property of it — so a translation touching only di.bounds slides the
+ * shape out from under its own text. Events and gateways carry external labels; tasks
+ * render theirs inside the shape and have none, which is why the files that looked
+ * clean were the task-only ones.
+ *
+ * Gate 5 could not see this: boundsList() matched the FIRST <Bounds> after each
+ * BPMNShape, which is always the shape's own. So F9 certified four files as rigid
+ * translations while twelve labels stayed behind. See FINDINGS.md F11.
+ */
+function translateShape(di, dx) {
+  if (di.bounds) di.bounds.x += dx;
+  if (di.label?.bounds) di.label.bounds.x += dx;
+}
+
+// The same obligation for edges: waypoints past the threshold, and the edge's label.
+function translateEdge(di, dx, threshold) {
+  if (di.waypoint) for (const wp of di.waypoint) if (wp.x >= threshold) wp.x += dx;
+  if (di.label?.bounds && di.label.bounds.x >= threshold) di.label.bounds.x += dx;
 }
 
 /**
@@ -80,7 +128,7 @@ export function placeNew({ moddle, definitions }, ids) {
   for (const id of ids) {
     const el = byId.get(id);
     if (!el || byElement.has(id)) continue;
-    if (el.$type === 'bpmn:SequenceFlow' || el.$type === 'bpmn:MessageFlow') continue;
+    if (!PLACEABLE_SHAPE.test(el.$type)) continue;  // never a Process, Collaboration, pool or lane
 
     const [w, h] = sizeOf(el);
     let x, y;
@@ -104,13 +152,31 @@ export function placeNew({ moddle, definitions }, ids) {
         } else {
           x = gapStart + GAP;                              // make room: shift downstream
           const shift = w + 2 * GAP - gapWidth;
+
+          // Scope. The shift used to run over the whole byElement map with a bare
+          // `di.bounds.x >= next.x` test, so inserting into one pool moved shapes in
+          // every other pool and on every other plane that happened to sit to the
+          // right. Confine it to the plane being drawn on and the container being
+          // edited. Pools and lanes are containers whose geometry derives from their
+          // contents, so they are never translated — a pool that is now too narrow is
+          // a known limitation (it needs resizing, not moving) and is not this fix.
+          const myPlane = planeFor(planes, byElement, el);
+          const myContainer = containerIdOf(el);
+
           for (const [otherId, di] of byElement) {
-            if (otherId === id || di.$type !== 'bpmndi:BPMNShape' || !di.bounds) continue;
-            if (di.bounds.x >= next.x) { di.bounds.x += shift; movedShapes++; }
-          }
-          for (const [, di] of byElement) {
-            if (di.$type !== 'bpmndi:BPMNEdge' || !di.waypoint) continue;
-            for (const wp of di.waypoint) if (wp.x >= next.x) wp.x += shift;
+            if (otherId === id) continue;
+            if (di.$parent !== myPlane) continue;
+            const target = di.bpmnElement;
+            if (!target || containerIdOf(target) !== myContainer) continue;
+
+            if (di.$type === 'bpmndi:BPMNShape') {
+              if (/^bpmn:(Participant|Lane)$/.test(target.$type)) continue;
+              if (!di.bounds || di.bounds.x < next.x) continue;
+              translateShape(di, shift);
+              movedShapes++;
+            } else if (di.$type === 'bpmndi:BPMNEdge') {
+              translateEdge(di, shift, next.x);
+            }
           }
         }
         y = prev.y + prev.h / 2 - h / 2;
@@ -147,7 +213,7 @@ export function placeNew({ moddle, definitions }, ids) {
   for (const id of ids) {
     const el = byId.get(id);
     if (!el || byElement.has(id)) continue;
-    if (el.$type !== 'bpmn:SequenceFlow' && el.$type !== 'bpmn:MessageFlow') continue;
+    if (!NEEDS_EDGE.test(el.$type)) continue;
     const a = bounds(byElement.get(el.sourceRef?.id));
     const b = bounds(byElement.get(el.targetRef?.id));
     if (!a || !b) continue;
@@ -175,15 +241,16 @@ export function placeNew({ moddle, definitions }, ids) {
 }
 
 /**
- * The gate from ADR-005: every element that needs DI must have it.
+ * The gate from ADR-005: every element that needs DI must have it — and no DI may
+ * point at an element that is gone. Both directions, because asking only
+ * elements->DI is what let orphaned shapes report as 100% covered.
+ *
  * Run after any operation that touches the model. The layouter's own warnings
  * channel is not trusted — C.4.0 lost 52 elements and reported none.
  */
-const NEEDS_SHAPE = /^bpmn:(Start|End|Boundary|IntermediateCatch|IntermediateThrow)Event$|^bpmn:(User|Service|Script|Manual|Send|Receive|BusinessRule)?Task$|^bpmn:(Sub|AdHocSub)Process$|^bpmn:Transaction$|^bpmn:CallActivity$|^bpmn:(Exclusive|Parallel|Inclusive|EventBased|Complex)Gateway$|^bpmn:Participant$|^bpmn:Lane$/;
-const NEEDS_EDGE = /^bpmn:(SequenceFlow|MessageFlow)$/;
-
 export function diCoverage(definitions) {
   const { byElement } = diIndex(definitions);
+  const live = index(definitions);
   const missing = [];
   let need = 0;
   for (const el of walk(definitions)) {
@@ -192,5 +259,10 @@ export function diCoverage(definitions) {
     need++;
     if (!byElement.has(el.id)) missing.push({ id: el.id, type: el.$type });
   }
-  return { ok: missing.length === 0, need, covered: need - missing.length, missing };
+  const orphans = [];
+  for (const [elId, di] of byElement) if (!live.has(elId)) orphans.push({ id: elId, type: di.$type });
+  return {
+    ok: missing.length === 0 && orphans.length === 0,
+    need, covered: need - missing.length, missing, orphans,
+  };
 }
