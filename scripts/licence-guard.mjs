@@ -41,7 +41,7 @@ const EXPLICIT_ALLOW = new Set(['bpmn-js-differ']);
 
 // Denied regardless of what it declares. Its LICENSE.md is "(c) Anthropic PBC. All
 // rights reserved" — strictly more restrictive than the watermark clause this guard
-// exists to exclude. Treadle never needs it: the product IS an MCP server.
+// exists to exclude. therblig never needs it: the product IS an MCP server.
 const DENY = new Set(['@anthropic-ai/claude-agent-sdk']);
 
 // A disjunction — "(MPL-2.0 OR Apache-2.0)" — lets the consumer choose, so one

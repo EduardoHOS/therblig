@@ -30,7 +30,7 @@ position.
 
 This **bounds** the decision rather than reversing it. moddle remains the only structure
 that preserves unmodelled vendor namespaces, which is the property F1 tested and the one
-that actually matters. Treadle warns; it does not refuse. New guard:
+that actually matters. therblig warns; it does not refuse. New guard:
 `bench/probe/probe-conserve.mjs`.
 
 The important part is not the loss. **This ADR's stated reversal guard could not detect
@@ -80,18 +80,18 @@ First edit reformats the file. Every edit after that is minimal.
 **Rests on:** F2 (1/22 byte-identical, but 22/22 idempotent) and F3 (Camunda-authored
 files cost −1 +2 lines to normalize; others get a full reformat).
 
-Told to the user honestly rather than papered over: a `treadle fmt` command makes the
+Told to the user honestly rather than papered over: a `therblig fmt` command makes the
 one-time diff a separate, reviewable commit instead of hiding it inside their first edit.
 
 **Reverses if:** design partners reject the reformat. The fallback is a surgical XML
 splicer that edits bytes in place — exact, but substantially harder.
 
 **Amended 2026-09-04 (F10).** The bargain has a second clause, and it must be stated as
-plainly as the first: **the first `treadle fmt` also deletes XML comments, DOCTYPE
+plainly as the first: **the first `therblig fmt` also deletes XML comments, DOCTYPE
 declarations and processing instructions.**
 
-`treadle fmt --check` and `treadle lint` warn before any write when the input carries
-such constructs. Treadle never refuses on this basis — the naive text-editing baseline
+`therblig fmt --check` and `therblig lint` warn before any write when the input carries
+such constructs. therblig never refuses on this basis — the naive text-editing baseline
 preserves comments trivially and for free, so a hard refusal would make the structured
 path strictly worse than the arm it has to beat, on a real axis.
 
@@ -134,7 +134,7 @@ to reproduce.
 published.** F9/F11 show incremental placement covers every edit to a file that already
 has DI, which is the entire edit-first product; full-file layout is needed only to
 construct the baseline arm. It stays pinned exactly as a bench devDependency and as an
-optional peer of `treadle`, dynamically imported only by `treadle layout --experimental`,
+optional peer of `therblig`, dynamically imported only by `therblig layout --experimental`,
 whose `--help` prints F4's version-scoped failure rate. Honestly stated: this removes it
 from the published dependency surface but **not** from the lockfile, and procurement
 tools that read lockfiles will still see it.
@@ -253,7 +253,7 @@ dependency, and it already separates `_layoutChanged` from `_added`/`_removed`/`
 which is exactly the split the M4 preservation receipt needs.
 `@anthropic-ai/claude-agent-sdk` is **explicitly denied**: its licence is
 "(c) Anthropic PBC. All rights reserved", strictly more restrictive than the clause this
-guard exists to exclude, and Treadle never needs it because the product *is* an MCP
+guard exists to exclude, and therblig never needs it because the product *is* an MCP
 server.
 
 **A guard never seen to fail is not known to work.** CI installs
@@ -266,7 +266,7 @@ fails twice over, on SPDX and on licence text.
 Three of its five premises were refuted on live verification 2026-09-04 and its
 idempotency mechanism had no basis in the spec. Superseded in full.*
 
-**Decision.** Treadle's MCP tools take an absolute file path as an ordinary tool
+**Decision.** therblig's MCP tools take an absolute file path as an ordinary tool
 argument, and the server holds no cross-call state. Consistency is carried by
 `base_rev` — the first 12 hex characters of the SHA-256 of the raw file bytes —
 returned by every read and **required** by every write that is not a dry run.
@@ -293,14 +293,14 @@ SSE resumability (SEP-2575).
 
 **The handle pattern is declined.** The spec's worked examples are a shopping cart, an
 open browser context and a database transaction — all ephemeral *server-side* state.
-Treadle's state is a file the filesystem already names. A handle would buy latency and
+therblig's state is a file the filesystem already names. A handle would buy latency and
 would turn every recovery path — stale rev, server restart, an external save from
 Camunda Modeler — into a failure mode rather than a re-read.
 
 **`patch_id` is dropped.** The 2026-07-28 core spec contains no idempotency mechanism,
 no request-dedup rule and no retry-safety requirement; the only artifact is
 `ToolAnnotations.idempotentHint`, which the schema itself calls a hint clients must
-treat as untrusted. Any key would have been a Treadle-level invention, and a required
+treat as untrusted. Any key would have been a therblig-level invention, and a required
 `base_rev` is strictly stronger: it survives a restart, needs no store, and detects an
 external write that a counter could not. Residual TOCTOU between hash and rename is
 real and stated — `base_rev` is advisory against a concurrent Modeler save, not a lock;

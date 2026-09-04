@@ -1,4 +1,4 @@
-# Treadle
+# therblig
 
 **Read, explain, lint and edit the `.bpmn` files already in your repo — from any AI agent,
 without wrecking the diagram.**
@@ -29,7 +29,7 @@ Meanwhile, editing a real `.bpmn` file with ordinary text tools breaks in struct
   stops working at all
 - regenerating the file moves every shape, producing a diff nobody will review
 
-Treadle operates on the parsed document instead: patches apply to the object tree, and
+therblig operates on the parsed document instead: patches apply to the object tree, and
 export rewrites only what changed.
 
 ## What is measured, not claimed
@@ -97,7 +97,7 @@ Evidence first, then ship, then study.
    guard, and write the red probes. No product code.
 2. **Core + oracle** — extract the library, and build the write-guard *separately* from
    the gates that scored the benchmark. Conflating those is how F9 came to be trusted.
-3. **`npx -y treadle-mcp`** — read, explain, lint, and preview edits. The install trigger.
+3. **`npx -y therblig-mcp`** — read, explain, lint, and preview edits. The install trigger.
 4. **Guarded writes**, then **the preservation receipt**: an offline-checkable proof that
    nothing outside an edit moved, plus a headless SVG a reviewer can look at.
 
@@ -111,12 +111,12 @@ re-scoped to preservation — the axis nobody else measures.
 Apache-2.0. Contributions by DCO sign-off — no CLA, and no plan to relicense the core.
 
 Third-party components and fixture provenance are recorded in [NOTICE](NOTICE) and
-[bench/corpus/PROVENANCE.md](bench/corpus/PROVENANCE.md). Treadle's own packages depend
+[bench/corpus/PROVENANCE.md](bench/corpus/PROVENANCE.md). therblig's own packages depend
 only on OSI-licensed software. The bpmn.io watermark licence attaches to the watermark
 rather than to a list of package names, so this is enforced by an SPDX allowlist and a
 licence-text scan over the installed tree, not by a hardcoded deny list
 ([ADR-009](docs/DECISIONS.md#adr-009--bpmn-js-is-quarantined-mechanically)).
 
 BPMN is a trademark of the Object Management Group. Camunda, Signavio and ARIS are
-trademarks of their respective owners. Treadle is not affiliated with or endorsed by any
+trademarks of their respective owners. therblig is not affiliated with or endorsed by any
 of them.

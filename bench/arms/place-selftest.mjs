@@ -39,9 +39,9 @@ for (const [file, proc, a, b] of CASES) {
   }
 
   const { created } = applyPatch(doc, [
-    { op: 'add', type: 'user', name: 'Inserted step', in: container, id: 'TreadleInserted', between: [src, tgt] },
+    { op: 'add', type: 'user', name: 'Inserted step', in: container, id: 'TherbligInserted', between: [src, tgt] },
   ]);
-  const touched = ['TreadleInserted', ...created];
+  const touched = ['TherbligInserted', ...created];
   const { placed, movedShapes } = placeNew(doc, touched);
   const after = await serialize(doc);
 

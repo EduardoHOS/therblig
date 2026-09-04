@@ -1,5 +1,5 @@
 // The IR projection and patch applier — Arm C's entire mechanism, and the prototype
-// of Treadle's core.
+// of therblig's core.
 //
 // Two rules, both from ADR-001 and ADR-002:
 //   1. The moddle tree is the source of truth. The IR is a read-projection.

@@ -1,7 +1,7 @@
 // Profiles every .bpmn in the corpus from the parsed moddle tree (not regex),
 // and measures moddle round-trip fidelity: semantic, byte-level, and idempotence.
 //
-// The byte-level column is the one that matters for Treadle's core promise:
+// The byte-level column is the one that matters for therblig's core promise:
 // "we only rewrite what you asked us to change". moddle re-serializes the whole
 // document, so byte-identity only holds when the file was written by a moddle-based
 // tool in the first place (Camunda Modeler, bpmn-js, anything on bpmn.io).

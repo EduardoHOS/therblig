@@ -119,7 +119,7 @@ BA Copilot — is built on the greenfield path: *text → whole diagram → auto
 That path rests on a layout engine that fails on 41% of the OMG working group's own
 reference models.
 
-Treadle's wedge is editing files that already have DI, where we place only new
+therblig's wedge is editing files that already have DI, where we place only new
 elements next to their neighbours. That is roughly 200 lines we control, not a
 layout engine we depend on. **The finding strengthens edit-first and weakens
 generate-first**, which is the opposite of where the original plan put its weight.
@@ -360,7 +360,7 @@ declares `engines: { node: ">=20" }`, and has exactly two runtime dependencies �
 type documents this directly: `legacy?: 'serve' | 'reject'`, where the default `'serve'`
 pins "a 2025-era instance from the same factory and serve[s] it exactly as a hand-wired
 stdio server serves it today". The factory's context object carries an `era` key, so a
-server that needs to branch can, and Treadle does not.
+server that needs to branch can, and therblig does not.
 
 Two incidental confirmations: every 2026-era result really does carry a required
 `resultType`, and stdout stayed pure JSON-RPC in both runs while diagnostics went to
@@ -369,7 +369,7 @@ stderr — which is what M2's stdout-purity CI job exists to keep true.
 **Consequence for kill criterion 2:** it is unlikely to fire on protocol grounds. The
 SDK handles era negotiation itself, so the residual risk is only whether a given client
 *launches* the binary correctly — a packaging and config question, not a protocol one,
-and one that `npx -y treadle-mcp` addresses directly.
+and one that `npx -y therblig-mcp` addresses directly.
 
 **Method note.** The probe's first two runs disagreed with each other: the 2025 arm
 returned nothing, because the driver wrote its first message before the server had
