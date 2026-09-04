@@ -56,6 +56,61 @@ function tally(root) {
   return counts;
 }
 
+// Namespace prefixes are arbitrary — a file may bind Camunda's schema to "c:" or "ns3:"
+// and nothing requires "camunda:". The URI is the identity, so resolve declared xmlns
+// URIs rather than regexing prefixes, and report every namespace present rather than
+// whichever one happened to match first.
+//
+// STANDARD is the structural spine every BPMN file has; reporting it would be noise.
+// Everything else is reported, because a preservation tool's job is to keep content it
+// does not understand, and this column is the inventory of what that content actually is.
+const STANDARD = [
+  /omg\.org\/spec\/BPMN\/\d/i,          // MODEL, DI  (but NOT the non-normative extensions)
+  /omg\.org\/spec\/DD\//i,              // DI, DC
+  /omg\.org\/spec\/XMI/i,
+  /w3\.org\/2001\/XMLSchema/i,
+  /w3\.org\/1999\/xhtml/i,
+  /omg\.org\/bpmn20/i,
+];
+const VENDORS = [
+  [/camunda\.org\/schema\/zeebe/i, 'zeebe'],
+  [/camunda\.org\/schema\/modeler/i, 'modeler'],
+  [/camunda\.org/i, 'camunda'],
+  [/activiti\.org/i, 'activiti'],
+  [/flowable\.org/i, 'flowable'],
+  [/signavio\.com/i, 'signavio'],
+  [/boc-group\.com|boc-eu\.com/i, 'boc'],       // ADONIS
+  [/trisotech\.com/i, 'trisotech'],
+  [/w4\.eu/i, 'w4'],
+  [/itp-commerce\.com/i, 'itp'],
+  [/bizagi\.com/i, 'bizagi'],
+  [/yaoqiang/i, 'yaoqiang'],
+  [/bonitasoft/i, 'bonitasoft'],
+  [/knowprocess\.com/i, 'knowprocess'],
+  [/jboss\.org\/drools/i, 'drools'],
+  [/bpsim\.org/i, 'bpsim'],                     // BPSim simulation extension
+  [/omg\.org\/spec\/DMN|omg\.org\/spec\/FEEL/i, 'dmn'],
+  [/omg\.org\/spec\/BPMN\/non-normative\/color/i, 'omg-color'],
+  [/omg\.org\/spec\/BPMN\/non-normative\/extensions\/i18n/i, 'omg-i18n'],
+  [/omg\.org\/spec\/BPMN\/non-normative/i, 'omg-nonnorm'],
+  [/openapis\.org/i, 'openapi'],
+  [/purl\.org\/rss|purl\.org/i, 'rss'],
+];
+
+function vendorsOf(xml) {
+  const found = new Set();
+  for (const m of xml.matchAll(/xmlns(?::[\w.-]+)?\s*=\s*"([^"]+)"/g)) {
+    const uri = m[1];
+    if (STANDARD.some((re) => re.test(uri))) continue;
+    const hit = VENDORS.find(([re]) => re.test(uri));
+    if (hit) { found.add(hit[1]); continue; }
+    // Unclassified: keep the host, so the corpus tells us what we have not modelled yet.
+    const host = (uri.match(/^\w+:\/\/([^/]+)/) || [, uri])[1];
+    found.add(host.replace(/^www\./, ''));
+  }
+  return [...found].sort();
+}
+
 const rows = [];
 for (const file of walk(process.argv[2] || 'bench/corpus')) {
   const xml = readFileSync(file, 'utf8');
@@ -63,7 +118,8 @@ for (const file of walk(process.argv[2] || 'bench/corpus')) {
   const r = { file: file.split(sep).join('/').replace('bench/corpus/', ''), bytes: xml.length };
   const exporter = xml.match(/exporter="([^"]*)"/);
   r.exporter = exporter ? exporter[1] : '';
-  r.vendorExt = (xml.match(/(camunda|zeebe|activiti|flowable|signavio):[a-z]/i) || [, '-'])[1];
+  const vendors = vendorsOf(xml);
+  r.vendorExt = vendors.length ? vendors.join('+') : '-';
   try {
     const { rootElement, warnings } = await moddle.fromXML(xml);
     Object.assign(r, tally(rootElement));

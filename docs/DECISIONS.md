@@ -96,9 +96,16 @@ preserves comments trivially and for free, so a hard refusal would make the stru
 path strictly worse than the arm it has to beat, on a real axis.
 
 **Reverses if:** `moddle-xml` registers a comment handler upstream, or measured
-real-world incidence over public repositories is high enough to justify a byte-splice
-path. Corpus incidence is 1/22 and cosmetic (an exporter banner); public-repo incidence
-is the deciding measurement and is not yet taken.
+real-world incidence rises above 5%.
+
+**Measured 2026-09-04 (F15).** 220 public `.bpmn` files across 161 repositories:
+**4.1% carry a body-position comment**, 2.7% carry only an exporter banner, 1.4% carry a
+DOCTYPE, none carry a non-declaration PI. Below the 5% threshold, so this clause stands
+and no byte-splice is built. Two caveats are on the record in F15: most body comments are
+generator-emitted section dividers, but not all — and the hits cluster in LLM-generated
+BPMN, which is the population an agent-facing tool will meet most. Re-run
+`npm run probe:comment-incidence` before v0.1; a sustained reading above 5% triggers the
+header/footer splice.
 
 ## ADR-005 — DI coverage is a hard CI gate; the layouter's warnings channel is not trusted
 

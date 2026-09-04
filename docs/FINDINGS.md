@@ -338,3 +338,88 @@ The ADR's stated rationale was also wrong. The bpmn.io licence names **no packag
 all**; it attaches the obligation to the watermark itself. So the guard now checks SPDX
 ids and licence text across the installed production tree (21 packages, 1 dated
 exception: `cli-table@0.3.11` ships MIT text with no `license` field).
+
+## F14 — the v2 SDK serves both protocol eras from one factory
+
+**2026-09-04 · `bench/probe/mcp-era/`, `npm run probe:mcp-era`**
+
+ADR-010 targets `@modelcontextprotocol/server@2.0.0`, and kill criterion 2 says to fall
+back to the v1 SDK if real clients cannot open a connection. The premise test: build a
+minimal `serveStdio` server and drive it with a scripted opening in each era.
+
+Verified first, independent of the probe: `@modelcontextprotocol/server@2.0.0` is MIT,
+declares `engines: { node: ">=20" }`, and has exactly two runtime dependencies —
+`zod@^4.2.0` and `@modelcontextprotocol/core@2.0.0`.
+
+| opening | server response |
+|---|---|
+| 2025 era — `initialize` + `notifications/initialized`, then `tools/list` | answers `protocolVersion: "2025-06-18"` with `serverInfo`, then returns the tool |
+| 2026-07-28 — no handshake, `protocolVersion` in `_meta`, `tools/list` | returns the tool, result carries `resultType: "complete"` |
+
+**One factory, one tool registration, both eras, no branching.** The `ServeStdioOptions`
+type documents this directly: `legacy?: 'serve' | 'reject'`, where the default `'serve'`
+pins "a 2025-era instance from the same factory and serve[s] it exactly as a hand-wired
+stdio server serves it today". The factory's context object carries an `era` key, so a
+server that needs to branch can, and Treadle does not.
+
+Two incidental confirmations: every 2026-era result really does carry a required
+`resultType`, and stdout stayed pure JSON-RPC in both runs while diagnostics went to
+stderr — which is what M2's stdout-purity CI job exists to keep true.
+
+**Consequence for kill criterion 2:** it is unlikely to fire on protocol grounds. The
+SDK handles era negotiation itself, so the residual risk is only whether a given client
+*launches* the binary correctly — a packaging and config question, not a protocol one,
+and one that `npx -y treadle-mcp` addresses directly.
+
+**Method note.** The probe's first two runs disagreed with each other: the 2025 arm
+returned nothing, because the driver wrote its first message before the server had
+finished resolving imports. It now blocks on a readiness line on stderr and is stable
+across repeated runs. A flaky probe is worse than no probe — it produces a number that
+is sometimes true.
+
+## F15 — body-position comments occur in ~4% of public `.bpmn` files
+
+**2026-09-04 · `bench/probe/probe-comment-incidence.mjs`, `bench/probe/comment-incidence.json`**
+
+F10 measured that a moddle round-trip silently drops comments, but corpus incidence was
+1 of 22 and the corpus is 21 vendor-written reference models. The policy question needs
+files written by the people we are asking to trust us with theirs, so: 220 public `.bpmn`
+files sampled across **161 repositories**, capped at 3 files per repository, over eight
+diversified GitHub code-search queries.
+
+| measure | files | share |
+|---|---|---|
+| carrying any comment | 15 | 6.8% |
+| header / exporter banner only | 6 | 2.7% |
+| **at least one body-position comment** | **9** | **4.1%** |
+| carrying a DOCTYPE | 3 | 1.4% |
+| carrying a non-declaration PI | 0 | 0.0% |
+
+**4.1% is below the 5% threshold pre-registered in the plan, so kill criterion 1 does not
+fire and ADR-004's warn-and-proceed clause stands as written.** No byte-level comment
+splice is built.
+
+**Two caveats that matter more than the headline.**
+
+*What the comments are.* Most are structural dividers a generator emitted —
+`<!-- Lanes -->`, `<!-- FLOWS -->`, `<!-- Lane Set: Departments / Functions -->`. Losing
+one of those costs nothing. But not all: one file carries
+`<!-- Process Variables: - tenantId: string - patientId: string - dischargeId: string … -->`,
+which is real documentation, and the person who wrote it would not expect an editing tool
+to delete it.
+
+*The number is likely to rise.* A striking share of the body-comment hits are in
+LLM-generated BPMN — `AutoBPMN`, `AI-Assistant`, a multi-agent review pipeline. Models
+writing BPMN annotate it, because that is what models do with structured text. Files
+authored by an agent are exactly the population an agent-facing editing tool will meet
+most, so 4.1% is a floor on a moving quantity rather than a stable property of the format.
+
+**Consequence:** proceed as planned, but re-run this probe before v0.1 and treat a
+sustained move above 5% as the trigger for the header/footer splice. The measurement is
+cheap and the file it writes is committed, so the comparison is a single command.
+
+**Method note.** The probe's first run fetched zero files — Windows `cmd.exe` mangled the
+`--jq` expression — and printed `body-comment incidence 0.0% -> WARN AND PROCEED`. It
+produced the same policy conclusion this one did, from no evidence at all. It now refuses
+to emit a verdict below a 100-file sample. That is the same failure as F11 in a different
+costume: an instrument reporting success because it measured nothing.

@@ -26,12 +26,18 @@
     "probe:labels": "node bench/probe/probe-labels.mjs",
     "probe:invariants": "node bench/probe/probe-invariants.mjs",
     "probe:conserve": "node bench/probe/probe-conserve.mjs bench/corpus",
-    "licence-guard": "node scripts/licence-guard.mjs"
+    "licence-guard": "node scripts/licence-guard.mjs",
+    "probe:mcp-era": "node bench/probe/mcp-era/drive.mjs",
+    "probe:comment-incidence": "node bench/probe/probe-comment-incidence.mjs 220"
   },
   "dependencies": {
     "bpmn-auto-layout": "2.0.0-alpha.2",
     "bpmn-moddle": "^10.2.0",
     "bpmnlint": "^11.13.0",
     "xmllint-wasm": "^5.3.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.2.0"
   }
 }
