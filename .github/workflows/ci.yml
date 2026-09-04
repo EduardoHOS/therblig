@@ -90,6 +90,10 @@ jobs:
       # Every reference model must still parse and validate. If this breaks, either a
       # dependency regressed or a fixture was modified in place — both are serious.
       - run: npm run bench:baseline
+      # The oracle over the whole corpus. Exits non-zero on any ERROR-severity finding;
+      # the 12 known warnings are frozen in bench/oracle/baseline.json and drift there
+      # fails `npm test`, so a rule quietly changing meaning cannot pass unnoticed.
+      - run: npm run oracle
 
   probes:
     name: probes (expected RED — measurement, not regression)

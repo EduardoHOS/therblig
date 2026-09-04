@@ -15,7 +15,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "test": "node bench/arms/ir-selftest.mjs && node bench/arms/place-selftest.mjs && node bench/probe/probe-labels.mjs && node bench/probe/probe-invariants.mjs",
+    "test": "node bench/arms/ir-selftest.mjs && node bench/arms/place-selftest.mjs && node bench/probe/probe-labels.mjs && node bench/probe/probe-invariants.mjs && node bench/oracle/oracle-selftest.mjs",
     "bench:profile": "node bench/corpus/profile.mjs bench/corpus",
     "bench:diff-floor": "node bench/corpus/probe-diff-floor.mjs bench/corpus",
     "bench:layout": "node bench/scorer/probe-layout.mjs bench/corpus",
@@ -28,7 +28,9 @@
     "probe:conserve": "node bench/probe/probe-conserve.mjs bench/corpus",
     "licence-guard": "node scripts/licence-guard.mjs",
     "probe:mcp-era": "node bench/probe/mcp-era/drive.mjs",
-    "probe:comment-incidence": "node bench/probe/probe-comment-incidence.mjs 220"
+    "probe:comment-incidence": "node bench/probe/probe-comment-incidence.mjs 220",
+    "oracle": "node bench/oracle/inspect-cli.mjs",
+    "oracle:update": "node bench/oracle/oracle-selftest.mjs --update"
   },
   "dependencies": {
     "bpmn-auto-layout": "2.0.0-alpha.2",
@@ -39,5 +41,8 @@
   "devDependencies": {
     "@modelcontextprotocol/server": "2.0.0",
     "zod": "4.2.0"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }
