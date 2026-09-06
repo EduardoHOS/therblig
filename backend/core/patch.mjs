@@ -211,22 +211,28 @@ export function applyPatch({ moddle, definitions }, operations) {
     created: [],
   };
 
-  for (const operation of operations) {
-    switch (operation.op) {
-      case 'add':
-        addNode(context, operation);
-        break;
-      case 'set':
-        setElement(context, operation);
-        break;
-      case 'del':
-        deleteElement(context, operation);
-        break;
-      case 'connect':
-        connectElements(context, operation);
-        break;
-      default:
-        throw new Error(`Unknown operation "${operation.op}"`);
+  for (const [at, operation] of operations.entries()) {
+    try {
+      switch (operation.op) {
+        case 'add':
+          addNode(context, operation);
+          break;
+        case 'set':
+          setElement(context, operation);
+          break;
+        case 'del':
+          deleteElement(context, operation);
+          break;
+        case 'connect':
+          connectElements(context, operation);
+          break;
+        default:
+          throw new Error(`Unknown operation "${operation.op}"`);
+      }
+    } catch (error) {
+      // Which operation failed, so a caller can name it without re-running the plan.
+      error.at ??= at;
+      throw error;
     }
   }
 

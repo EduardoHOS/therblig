@@ -3,16 +3,6 @@
 Every entry records an intentional limit, why it is acceptable now, and the concrete
 event that requires the full implementation. Remove an entry when its work ships.
 
-## Atomic multi-operation patches
-
-The benchmark API applies an array of operations directly to an in-memory moddle tree. A
-later invalid operation can currently observe mutations made by earlier operations in the
-same call. No shipped CLI, MCP server, or file writer exposes this behavior yet.
-
-**Trigger:** before any external caller may submit more than one operation or before a
-patched document can be written to disk. At that point, validate/apply against an isolated
-document and publish the result only after every gate succeeds.
-
 ## TypeScript contracts
 
 The core remains ESM JavaScript while the patch and projection APIs are still being

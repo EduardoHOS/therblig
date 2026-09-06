@@ -41,6 +41,9 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
 - `ops.mjs` compiles intent (`insertAfter`, `timeout`, `rename`, …) into plans of those four
   operations. It reads the IR and never the tree; the envelope's `risk` is computed from the plan.
 - `placement.mjs` adds DI for new elements and measures DI coverage.
+- `gates.mjs` owns the independent checks: parse, XSD, bpmnlint, collateral change, diff
+  sanity. `propose.mjs` applies a plan to an isolated copy, places what it created, scores
+  every gate, and returns the result without touching the caller's document.
 - `blocks/` holds one definition per BPMN element type: its IR word, DI shape, and the
   extras it projects and builds. `registry.mjs` tabulates them and is the closed node
   vocabulary; a type named outside `blocks/` fails the architecture test.

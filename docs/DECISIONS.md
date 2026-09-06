@@ -170,3 +170,35 @@ as missing, which is the honest answer.
 
 **Reverses if:** a block needs a slot that only it implements. That is the signal the behaviour
 belongs in the module that consumes it, not in the table.
+
+## ADR-013 — Gates live in the core; the bench re-exports them
+
+`backend/core/gates.mjs` owns parse, XSD, bpmnlint, collateral-change and diff-sanity;
+`bench/scorer/gates.mjs` is now a re-export. The core may not import `bench/`, so a `propose`
+that must not publish an unscored document needs the gates on its own side of the boundary.
+The bake-off still scores every arm with exactly this code, which was the point of the split.
+
+**Rests on:** `npm run corpus` output and the projection of all 22 files are unchanged, and the
+schema path moved from a working-directory string to a module-relative URL — proven by a test
+that validates the corpus with `process.cwd()` set to `/`, which the CLI will need.
+
+**Three defensive shapes deleted after measuring the real ones:** `xmllint-wasm` 5.3.0 always
+returns an `errors` array whose entries carry `message`, so the string/`rawMessage` fallbacks
+never ran; and across the corpus's 1,167 references, moddle left zero as an unresolved string —
+it drops a reference it cannot resolve — so `ref.id ?? ref` never ran either. That last fact is
+also the reason a passing XSD gate says nothing about reference integrity, which is ADR-014's job.
+`fingerprint` now walks with `document.mjs`'s `walk` instead of its own copy.
+
+## ADR-014 — A proposal is a dry run against an isolated document
+
+`propose(document, plan)` serializes and re-parses the caller's document (there is no deep clone
+of a moddle tree, so a round-trip is the clone), applies the plan to that copy, places what it
+created, scores every gate, and returns `{ ok, xml, gates, diff, created, changed, placed }`.
+The caller's document is never mutated, so a plan that fails halfway leaves nothing behind, and
+the error names which operation of how many failed.
+
+**Rests on:** the guard test — a two-operation plan whose second operation is invalid leaves the
+source byte-identical. Removing the isolation fails it.
+
+**No `rev` yet.** The design pairs proposals with a revision handle, but no store exists: that
+arrives with the MCP server, and a handle with no store to key would be a speculative field.
