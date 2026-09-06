@@ -222,3 +222,31 @@ activity may legitimately name a process in another file — a workspace concern
 
 **Reverses if:** a corpus file trips a scope rule that BPMN actually permits. The gate is then too
 strict and the rule, not the file, is wrong.
+
+## ADR-016 — A connection's kind is decided by scope, not by the caller
+
+`connect` mints a sequence flow when source and target share a container and a message flow when
+they do not, refusing when the two containers are not pools of one collaboration. BPMN leaves no
+choice here — within a container a connection is a sequence flow, across pools it can only be a
+message flow — so choosing for the caller adds no ambiguity and removes a way to be wrong.
+
+**Rests on:** `miwg/C.4.0` gives every pool its own single-participant collaboration, so there is
+no one place a message flow between two of its pools could live; guessing would put it in an
+arbitrary parent. `miwg/C.1.0` has two pools under one collaboration and works.
+
+**Also:** `set { lane }` moves a node between lanes, because lane membership lives on the lane
+(`flowNodeRef`) and not on the node — the IR shows it on the node, so the primitive mirrors the
+IR rather than making a caller edit two lanes.
+
+## ADR-017 — An op guarantees an exact inverse; a primitive does not
+
+`bypass` refuses a node carrying boundary events instead of cascading them, because the IR does
+not carry a timer's duration or an error code and the re-added boundary could not be restored.
+An inverse that silently drops data is worse than a refusal that names the remedy: remove the
+boundary first, or use `del` and accept the loss.
+
+**Rests on:** the envelope promises `inverse`, and every op test applies plan then inverse and
+compares the semantic fingerprint. A lossy inverse would pass that check while losing content.
+
+**`risk` counts `lane` as routing.** Moving a step between lanes moves no token, but it changes
+who executes the work — not something an autonomous agent should do unreviewed.

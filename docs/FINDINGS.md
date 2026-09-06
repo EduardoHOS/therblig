@@ -235,3 +235,33 @@ Reproduce:
 ```sh
 node --test backend/test/unit/references.test.mjs
 ```
+
+## F11 — deleting an element must delete what it contains, and the reference gate proves it
+
+`miwg/C.4.0`'s `_aa275782…` user task carries an `inputOutputSpecification` with a `dataOutput`
+and an `outputSet`, plus a `dataOutputAssociation`. Removing the task removed those with it — but
+`del` reported none of them as changed and left the `BPMNEdge` that drew the association pointing
+at nothing.
+
+| measure | before | after |
+|---|---|---|
+| `noCollateral` unexpected ids on a `bypass` of that task | **3** | **0** |
+| `references` findings introduced | **1** (`unresolved-reference`, a `BPMNEdge`) | **0** |
+
+The bug predates the reference gate; the gate is what surfaced it on the first real-fixture edit.
+Containment is `child.$parent === element` — `walk()` follows every reference and would have
+reached the whole graph, so `document.mjs` grew a separate `contained()` for it.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/ops-graph.test.mjs
+```
+
+### A note on `no-implicit-split` and message flows
+
+Adding a message flow from a task that already has one outgoing sequence flow makes
+`bpmnlint:recommended` report `no-implicit-split` on that task. BPMN does not split a token on a
+message flow, so the rule is counting something that does not branch. The gate reports the style
+delta rather than special-casing a linter rule; `recommended` is a style opinion (ADR-006), and
+`correctness` stays green.

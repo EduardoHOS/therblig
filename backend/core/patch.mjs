@@ -1,5 +1,5 @@
 import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
-import { index, walk } from './document.mjs';
+import { contained, containerOf, index, walk } from './document.mjs';
 import { block } from './registry.mjs';
 
 export function mintId(byId, base) {
@@ -76,7 +76,26 @@ function addNode({ moddle, byId, changed, created }, operation) {
   created.push(flowId);
 }
 
-function setElement({ moddle, byId, changed }, operation) {
+// Lane membership lives on the lane, not on the node, so moving a node means editing two lanes.
+function setLane({ definitions, byId, changed }, element, laneId) {
+  for (const lane of walk(definitions)) {
+    if (lane.$type !== 'bpmn:Lane' || !lane.flowNodeRef) continue;
+    const at = lane.flowNodeRef.indexOf(element);
+    if (at < 0) continue;
+    lane.flowNodeRef.splice(at, 1);
+    changed.add(lane.id);
+  }
+  if (laneId == null) return;
+
+  const lane = byId.get(laneId);
+  if (lane?.$type !== 'bpmn:Lane') throw new Error(`Lane "${laneId}" not found`);
+  lane.flowNodeRef ??= [];
+  lane.flowNodeRef.push(element);
+  changed.add(lane.id);
+}
+
+function setElement(context, operation) {
+  const { moddle, byId, changed } = context;
   const element = byId.get(operation.id);
   if (!element) throw new Error(`Element "${operation.id}" not found`);
 
@@ -87,6 +106,8 @@ function setElement({ moddle, byId, changed }, operation) {
       if (element.conditionExpression) element.conditionExpression.$parent = element;
     } else if (key === 'default') {
       element.default = byId.get(value);
+    } else if (key === 'lane') {
+      setLane(context, element, value);
     } else if (key === 'to') {
       if (!element.$type.endsWith('Flow')) throw new Error(`Element "${operation.id}" is not a flow`);
       const target = byId.get(value);
@@ -126,6 +147,15 @@ function deleteElement({ definitions, byId, changed }, operation) {
     }
   }
 
+  // Whatever a removed element contains goes with it — a task's inputOutputSpecification, its data
+  // associations. Each one needs to be reported as changed and to have its DI dropped, or it
+  // reads as collateral damage and leaves an edge pointing at nothing.
+  const nested = [];
+  for (const target of removed) {
+    for (const child of contained(target)) nested.push(child);
+  }
+  for (const child of nested) removed.add(child);
+
   // DI is not a BPMN reference, so the XSD accepts a shape whose element is gone. Drop it here so
   // that "every element requiring DI has DI" also holds in reverse.
   for (const diagram of elements) {
@@ -159,32 +189,29 @@ function connectElements({ moddle, definitions, byId, changed, created }, operat
   if (!source) throw new Error(`Source "${operation.from}" not found`);
   if (!target) throw new Error(`Target "${operation.to}" not found`);
 
+  // BPMN leaves no choice here: within a container a connection is a sequence flow, and across
+  // one it can only be a message flow between pools of a collaboration.
+  const crosses = containerOf(source) !== containerOf(target);
+  const collaboration = crosses ? collaborationFor(definitions, source, target) : null;
+
   if (operation.remove) {
+    const wanted = crosses ? 'bpmn:MessageFlow' : 'bpmn:SequenceFlow';
     for (const flow of walk(definitions)) {
-      if (
-        flow.$type !== 'bpmn:SequenceFlow' ||
-        flow.sourceRef !== source ||
-        flow.targetRef !== target
-      ) {
-        continue;
-      }
+      if (flow.$type !== wanted || flow.sourceRef !== source || flow.targetRef !== target) continue;
       unlinkFlow(flow);
-      const siblings = flow.$parent?.flowElements;
-      if (siblings) {
-        const position = siblings.indexOf(flow);
-        if (position >= 0) siblings.splice(position, 1);
-      }
+      const siblings = flow.$parent?.flowElements ?? flow.$parent?.messageFlows;
+      const position = siblings?.indexOf(flow) ?? -1;
+      if (position >= 0) siblings.splice(position, 1);
       changed.add(flow.id);
     }
     return;
   }
 
-  const container = source.$parent;
   const id =
     operation.id && !byId.has(operation.id)
       ? operation.id
-      : mintId(byId, `Flow_${operation.from}_${operation.to}`);
-  const flow = moddle.create('bpmn:SequenceFlow', {
+      : mintId(byId, `${crosses ? 'Message' : 'Flow'}_${operation.from}_${operation.to}`);
+  const flow = moddle.create(crosses ? 'bpmn:MessageFlow' : 'bpmn:SequenceFlow', {
     id,
     ...(operation.name ? { name: operation.name } : {}),
   });
@@ -195,11 +222,29 @@ function connectElements({ moddle, definitions, byId, changed, created }, operat
     flow.conditionExpression.$parent = flow;
   }
 
+  const container = collaboration ?? source.$parent;
   flow.$parent = container;
-  flowNodesOf(container).push(flow);
+  if (collaboration) {
+    collaboration.messageFlows ??= [];
+    collaboration.messageFlows.push(flow);
+  } else {
+    flowNodesOf(container).push(flow);
+  }
   byId.set(id, flow);
   changed.add(id);
   created.push(id);
+}
+
+function collaborationFor(definitions, source, target) {
+  const scopes = new Set([containerOf(source), containerOf(target)]);
+  for (const element of walk(definitions)) {
+    if (element.$type !== 'bpmn:Collaboration') continue;
+    // A black-box pool has no processRef, so it can hold no node to connect: it maps to
+    // undefined and never matches a container.
+    const pooled = new Set(element.participants.map((participant) => participant.processRef?.id));
+    if ([...scopes].every((scope) => pooled.has(scope))) return element;
+  }
+  throw new Error(`"${source.id}" and "${target.id}" are not pools of one collaboration`);
 }
 
 export function applyPatch({ moddle, definitions }, operations) {

@@ -188,13 +188,22 @@ function placeEdges(context, ids) {
     const target = bounds(context.byElement.get(element.targetRef?.id));
     if (!source || !target) continue;
 
-    const from = { x: source.x + source.width, y: source.y + source.height / 2 };
-    const to = { x: target.x, y: target.y + target.height / 2 };
+    // A message flow joins two pools, which sit above one another: route it vertically.
+    const vertical = element.$type === 'bpmn:MessageFlow';
+    const from = vertical
+      ? { x: source.x + source.width / 2, y: source.y + source.height }
+      : { x: source.x + source.width, y: source.y + source.height / 2 };
+    const to = vertical
+      ? { x: target.x + target.width / 2, y: target.y }
+      : { x: target.x, y: target.y + target.height / 2 };
     const middleX = from.x + (to.x - from.x) / 2;
-    const points =
-      from.y === to.y
-        ? [from, to]
-        : [from, { x: middleX, y: from.y }, { x: middleX, y: to.y }, to];
+    const middleY = from.y + (to.y - from.y) / 2;
+    let points = [from, to];
+    if (vertical && from.x !== to.x) {
+      points = [from, { x: from.x, y: middleY }, { x: to.x, y: middleY }, to];
+    } else if (!vertical && from.y !== to.y) {
+      points = [from, { x: middleX, y: from.y }, { x: middleX, y: to.y }, to];
+    }
     const plane = planeFor(context.planes, context.byElement, element);
 
     const edge = context.moddle.create('bpmndi:BPMNEdge', {
