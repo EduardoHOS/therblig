@@ -455,3 +455,23 @@ intend, and between two arbitrary files there is no intent to compare against. I
 
 **An unnamed lane is reported by its id.** `miwg/C.1.0` has one, and a packet that says a step
 moved out of `""` tells a reviewer nothing.
+
+## ADR-027 — Conformance replays an explicit trace; it does not mine a log
+
+`conform(definitions, trace)` takes a list of element ids in the order they ran and answers two
+questions: does what happened match what the model allows, and what does the model allow that
+never happens? It reports the first divergence with the step before it, and the nodes the trace
+never reached.
+
+**It is not log ingestion, and the difference is the whole point.** Turning a log into a trace
+means matching case ids and activity names to elements, and that mapping is the binding layer's
+problem — the thing that says which system performs which step. This ships the half that can be
+built and tested today, and F14's earlier framing of "ingest a log" was hiding a much larger job
+inside a verb.
+
+**A boundary event follows its host.** No sequence flow leads into one; it fires because its host
+ran, so the replay accepts it after its host and would otherwise call every real timeout a
+divergence.
+
+**Reverses if:** a trace is ever produced from something other than a person or a script naming
+ids. At that point the mapping is the feature, and this is its consumer.

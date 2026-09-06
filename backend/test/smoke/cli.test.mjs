@@ -167,3 +167,24 @@ test('lint prints the validator messages for a file the schema rejects', async (
   assert.match(stdout, /fail +xsdValid/);
   assert.match(stdout, /targetNamespace/);
 });
+
+test('conform replays a trace and names both the divergence and what nobody does', async () => {
+  const good = await treadle([
+    'conform', 'handmade/parallel-join.bpmn',
+    '--trace', 'Received,Split,Cover,Join,Decide,Pay,Settled',
+  ]);
+  assert.equal(good.code, 0);
+  assert.match(good.stdout, /the trace conforms/);
+  assert.match(good.stdout, /never reached: Fraud, Reject/);
+
+  const bad = await treadle([
+    'conform', 'handmade/parallel-join.bpmn', '--trace', 'Received,Split,Pay',
+  ]);
+  assert.equal(bad.code, 1);
+  assert.match(bad.stdout, /diverged at step 3: Pay/);
+  assert.match(bad.stdout, /no path leads here from the step before, after Split/);
+
+  const missing = await treadle(['conform', 'handmade/parallel-join.bpmn']);
+  assert.equal(missing.code, 2);
+  assert.match(missing.stderr, /--trace/);
+});

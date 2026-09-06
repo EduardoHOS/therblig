@@ -2,6 +2,7 @@
 import { parseArgs } from 'node:util';
 
 import {
+  conform,
   diffSanity,
   lintClean,
   parses,
@@ -26,6 +27,7 @@ const USAGE = `treadle — read, explain and edit the .bpmn files you already ha
   treadle apply <file> --op <name> --args <json> [--write]
   treadle apply <file> --plan <file.json> [--write]
   treadle review <as-is> <to-be>          what changed, what it risks, what it costs
+  treadle conform <file> --trace <ids>    replay what happened against what the model allows
 
   --root <dir>    widen the workspace (default: the working directory)
   --allow <list>  risk levels this edit may reach (default: safe,additive)
@@ -33,9 +35,10 @@ const USAGE = `treadle — read, explain and edit the .bpmn files you already ha
 
 Every edit is a dry run until --write, and every edit is refused if a gate fails.`;
 
-const COMMANDS = ['project', 'lint', 'explain', 'fmt', 'apply', 'review'];
+const COMMANDS = ['project', 'lint', 'explain', 'fmt', 'apply', 'review', 'conform'];
 const OPTIONS = {
   scope: { type: 'string' },
+  trace: { type: 'string' },
   root: { type: 'string' },
   op: { type: 'string' },
   args: { type: 'string' },
@@ -81,6 +84,25 @@ export async function main(argv) {
   } catch (error) {
     const hint = error.code === 'path-outside-root' ? ' — pass --root to widen it' : '';
     return fail(`${error.message}${hint}`);
+  }
+
+  if (command === 'conform') {
+    if (!parsed.values.trace) return fail('conform needs --trace <id,id,id>\n\n' + USAGE);
+    const trace = parsed.values.trace.split(',').map((id) => id.trim()).filter(Boolean);
+    const result = conform(source.document.definitions, trace);
+
+    const lines = result.diverged
+      ? [
+          `diverged at step ${result.diverged.at + 1}: ${result.diverged.id}`,
+          `  ${result.diverged.reason}${result.diverged.after ? `, after ${result.diverged.after}` : ''}`,
+        ]
+      : ['the trace conforms'];
+    lines.push(
+      `never reached: ${result.unvisited.length ? result.unvisited.join(', ') : 'nothing — the trace covered the model'}`,
+    );
+    process.stdout.write(`${lines.join('\n')}\n`);
+    if (result.diverged) process.exitCode = 1;
+    return undefined;
   }
 
   if (command === 'review') {

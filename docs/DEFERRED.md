@@ -3,6 +3,15 @@
 Every entry records an intentional limit, why it is acceptable now, and the concrete
 event that requires the full implementation. Remove an entry when its work ships.
 
+## Turning a log into a trace
+
+`conform` replays a trace — a list of element ids. Producing one from an execution log means
+matching case ids and activity names to elements, which is the binding layer's problem and not a
+parsing one.
+
+**Trigger:** a binding that says which system performs which step. Until then a trace is written
+by a person or a script that already knows the ids.
+
 ## Cross-file references
 
 `calledElement` on a call activity, and `structureRef` on an item definition, may legitimately

@@ -14,6 +14,7 @@
  */
 
 export { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
+export { conform } from './conform.mjs';
 export { diff, review } from './diff.mjs';
 export { contained, containerOf, index, parse, serialize, walk } from './document.mjs';
 export {

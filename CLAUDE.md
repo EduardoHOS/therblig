@@ -49,7 +49,8 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
   from the plan, and an op guarantees an exact inverse or refuses.
 - `placement.mjs` adds DI for new elements and measures DI coverage.
 - `simulate.mjs` runs the decidable subset as discrete-event tokens; `diff.mjs` turns two
-  versions into what changed by id, and into the packet a reviewer reads.
+  versions into what changed by id, and into the packet a reviewer reads; `conform.mjs`
+  replays an explicit trace against the model.
 - `gates.mjs` owns the independent checks: parse, XSD, reference integrity, routing
   semantics, bpmnlint, collateral change, diff sanity. `propose.mjs` applies a plan to an isolated copy, places what it created, scores
   every gate, and returns the result without touching the caller's document.
