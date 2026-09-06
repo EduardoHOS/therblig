@@ -95,6 +95,10 @@ test('onError mirrors timeout with an error boundary that catches anything', () 
     { op: 'add', type: 'boundary', event: 'error', on: 'B', in: 'P', id: 'B_error' },
     { op: 'connect', from: 'B_error', to: 'H', id: 'Flow_B_error' },
   ]);
+  assert.equal(
+    onError(ir(), { on: 'B', to: 'H', name: 'Failed' }).plan[0].name,
+    'Failed',
+  );
   assert.deepEqual(envelope.inverse, [{ op: 'del', id: 'B_error' }]);
   assert.equal(envelope.risk, 'additive');
   assert.equal(envelope.explain, 'If "Check" fails, continue to "Escalate".');

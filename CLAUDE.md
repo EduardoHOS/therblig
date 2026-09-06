@@ -112,6 +112,9 @@ npm test
 npm run test:coverage
 npm run corpus
 npm run check
+
+npx treadle explain bench/corpus/miwg/C.9.0.bpmn
+npx treadle apply file.bpmn --op timeout --args '{"on":"X","after":"P3D","to":"Y","name":"Late"}'
 ```
 
 `npm run check` is the local and CI quality gate. Do not call a change complete if this

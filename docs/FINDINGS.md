@@ -294,3 +294,30 @@ Reproduce:
 ```sh
 node --test backend/test/unit/ops-fork.test.mjs
 ```
+
+## F13 — an op that adds an element must label it, or the model gets worse
+
+Three ops mint elements that BPMN expects to carry a label, and the first end-to-end run of each
+one failed `bpmnlint:recommended` for exactly that reason:
+
+| op | element | rule |
+|---|---|---|
+| `branch` | the diverging gateway | `label-required` |
+| `branch` | its conditional exit | `label-required` |
+| `timeout` / `onError` | the boundary event | `label-required` |
+
+All three now take a name and pass it through, and none of them invents one: an unlabelled
+decision or handler is a model a reader cannot follow, and silently naming it for them would be
+worse than the gate saying so.
+
+Measured through the real entrypoint:
+
+```sh
+treadle apply p.bpmn --op timeout --args '{"on":"…","after":"P3D","to":"…"}'
+# fail lintClean
+treadle apply p.bpmn --op timeout --args '{"on":"…","after":"P3D","to":"…","name":"Too slow"}'
+# ok   lintClean
+```
+
+The one style delta the ops do not fix is `no-implicit-split` on a message flow's source (F11),
+which is bpmnlint counting something BPMN does not branch on.

@@ -240,3 +240,12 @@ test('insertAfter on the fixture splices with rigid placement and inverts withou
   for (const id of envelope.minted) assert.doesNotMatch(restored, new RegExp(`bpmnElement="${id}"`));
   assert.match(restored, /bpmnElement="Flow_2"/);
 });
+
+test('timeout and onError label their handler when given a name', () => {
+  const named = timeout(ir(), { on: 'B', after: 'P3D', to: 'H', name: 'Too slow' });
+  assert.equal(named.plan[0].name, 'Too slow');
+  assert.equal(named.plan[0].id, 'B_timeout');
+
+  const unnamed = timeout(ir(), { on: 'B', after: 'P3D', to: 'H' });
+  assert.equal('name' in unnamed.plan[0], false);
+});

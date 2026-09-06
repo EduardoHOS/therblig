@@ -318,3 +318,25 @@ nodes and wakes a boundary whose host it has reached, to a fixed point.
 **Not under the line-coverage gate.** The smoke suite spawns the real entrypoint, and coverage is
 not collected across processes. Every command, exit code and failure path is covered by a spawned
 test instead — which is stronger evidence for a CLI than a line count.
+
+## ADR-021 — Dry run by default; `--write` publishes, `--allow` decides how far
+
+`treadle apply` prints the envelope, every gate and the measured diff, and touches nothing. Adding
+`--write` publishes through `writeBpmnAtomic`, and only if every gate passed. The risk level is
+computed from the plan, so the policy needs no per-op table: `--allow` defaults to `safe,additive`
+and a plan above it exits 3 naming both the level and the flag that would permit it.
+
+That default is the answer to "what may an agent change unreviewed": the edits that only add.
+A `routing` or `destructive` plan is still printed in full — the refusal is about publishing, not
+about looking.
+
+**`fmt` is its own command** so the one-time reformat of ADR-004 lands in its own commit instead
+of hiding inside whatever edit came first. It reports the diff between the bytes on disk and the
+normalised form — the first implementation compared two already-normalised forms and reported
+`−0 +1` while rewriting the file, which is now a test.
+
+**No `undo` command.** The inverse is already in the envelope; `apply --plan inverse.json` runs it.
+A command for what an argument already does is a command to keep working.
+
+**Ops are named by an explicit map, and `--args` takes JSON.** One flag carrying the op's arguments
+maps to the envelope's `args` exactly, instead of inventing a flag per parameter of ten ops.

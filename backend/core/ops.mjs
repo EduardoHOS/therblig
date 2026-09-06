@@ -140,7 +140,7 @@ export function insertAfter(ir, args) {
 }
 
 export function timeout(ir, args) {
-  const { on, after, to } = args;
+  const { on, after, to, name } = args;
   const host = nodeOf(ir, on);
   if (!ACTIVITY.has(host.type)) throw precondition('host-not-activity', `Host "${on}" is not an activity`);
   const target = nodeOf(ir, to);
@@ -156,7 +156,16 @@ export function timeout(ir, args) {
 
   return envelope('timeout', args, {
     plan: [
-      { op: 'add', type: 'boundary', event: 'timer', on, in: host.in, id, timer: { duration: after } },
+      {
+        op: 'add',
+        type: 'boundary',
+        event: 'timer',
+        ...(name ? { name } : {}),
+        on,
+        in: host.in,
+        id,
+        timer: { duration: after },
+      },
       { op: 'connect', from: id, to, id: flowId },
     ],
     inverse: [{ op: 'del', id }],
@@ -239,7 +248,7 @@ export function bypass(ir, args) {
 }
 
 export function onError(ir, args) {
-  const { on, to } = args;
+  const { on, to, name } = args;
   const host = nodeOf(ir, on);
   if (!ACTIVITY.has(host.type)) throw precondition('host-not-activity', `Host "${on}" is not an activity`);
   const target = nodeOf(ir, to);
@@ -254,9 +263,10 @@ export function onError(ir, args) {
 
   return envelope('onError', args, {
     // No errorRef: a bare ErrorEventDefinition catches any error, which is the common case and
-    // the only one expressible without minting a bpmn:Error root element.
+    // the only one expressible without minting a bpmn:Error root element. `name` labels the
+    // handler — bpmnlint reports an unlabelled one, and a reader cannot tell what it catches.
     plan: [
-      { op: 'add', type: 'boundary', event: 'error', on, in: host.in, id },
+      { op: 'add', type: 'boundary', event: 'error', ...(name ? { name } : {}), on, in: host.in, id },
       { op: 'connect', from: id, to, id: flowId },
     ],
     inverse: [{ op: 'del', id }],
