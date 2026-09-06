@@ -326,3 +326,14 @@ test('delete removes the DI of every removed element', async () => {
     assert.doesNotMatch(xml, new RegExp(`bpmnElement="${id}"`), `${id} still has DI`);
   }
 });
+
+// A boundary event without attachedToRef is XSD-invalid, but nothing rejects it yet: the XSD gate
+// does not resolve references. PR-04's reference-integrity gate is what will catch it.
+test('add creates a boundary without a host, and the projection does not invent one', async () => {
+  const { document } = await normalizedFixture();
+  applyPatch(document, [{ op: 'add', type: 'boundary', in: 'Payment', id: 'Dangling' }]);
+
+  const node = project(document.definitions).nodes.find((found) => found.id === 'Dangling');
+  assert.equal(node.type, 'boundary');
+  assert.equal(node.on, undefined);
+});

@@ -4,3 +4,4 @@ export { insertAfter, rename, risk, timeout } from './ops.mjs';
 export { applyPatch } from './patch.mjs';
 export { placeNew, diCoverage } from './placement.mjs';
 export { project } from './projection.mjs';
+export { block, blocks, byBpmn, byIr, tabulate } from './registry.mjs';

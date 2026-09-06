@@ -22,3 +22,16 @@ test('ops.mjs compiles intent to primitives without touching the parser or the t
   assert.doesNotMatch(source, /from 'bpmn-moddle'/);
   assert.doesNotMatch(source, /moddle\.create/);
 });
+
+test('a node type is named in blocks/ and nowhere else in the core', async () => {
+  const { blocks } = await import('../../core/registry.mjs');
+  const types = blocks.flatMap((block) => [block.bpmn, ...(block.also ?? [])]);
+  const files = (await readdir(CORE_ROOT)).filter((file) => file.endsWith('.mjs'));
+
+  for (const file of files) {
+    const source = await readFile(new URL(file, CORE_ROOT), 'utf8');
+    for (const type of types) {
+      assert.doesNotMatch(source, new RegExp(`['"\`]${type}['"\`]`), `${file} names ${type}`);
+    }
+  }
+});

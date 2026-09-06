@@ -1,25 +1,7 @@
 import { index, walk } from './document.mjs';
+import { byBpmn } from './registry.mjs';
 
-const SIZE = {
-  'bpmn:StartEvent': [36, 36],
-  'bpmn:EndEvent': [36, 36],
-  'bpmn:IntermediateCatchEvent': [36, 36],
-  'bpmn:IntermediateThrowEvent': [36, 36],
-  'bpmn:BoundaryEvent': [36, 36],
-  'bpmn:ExclusiveGateway': [50, 50],
-  'bpmn:ParallelGateway': [50, 50],
-  'bpmn:InclusiveGateway': [50, 50],
-  'bpmn:EventBasedGateway': [50, 50],
-  'bpmn:ComplexGateway': [50, 50],
-  'bpmn:SubProcess': [350, 200],
-  'bpmn:Transaction': [350, 200],
-};
-const DEFAULT_SIZE = [100, 80];
 const GAP = 50;
-
-function sizeOf(element) {
-  return SIZE[element.$type] ?? DEFAULT_SIZE;
-}
 
 function diIndex(definitions) {
   const planes = [];
@@ -161,9 +143,13 @@ function placeNodes(context, ids) {
   for (const id of ids) {
     const element = context.byId.get(id);
     if (!element || context.byElement.has(id)) continue;
-    if (element.$type === 'bpmn:SequenceFlow' || element.$type === 'bpmn:MessageFlow') continue;
+    // Only blocks get placed beside a neighbour. A pool or lane needs DI too, but laying one out
+    // is a different problem, and the closed vocabulary means `add` can never mint one — so we
+    // leave it unplaced and let diCoverage report it rather than invent a task-sized box.
+    const box = byBpmn.get(element.$type)?.shape;
+    if (!box) continue;
 
-    const [width, height] = sizeOf(element);
+    const { w: width, h: height } = box;
     const position = nodePosition(element, context.byElement, width, height);
     if (!position) continue;
     const plane = planeFor(context.planes, context.byElement, element);

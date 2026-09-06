@@ -1,6 +1,6 @@
 import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
 import { index, walk } from './document.mjs';
-import { BPMN_EVENT_BY_KIND, BPMN_TYPE_BY_NODE } from './vocabulary.mjs';
+import { block } from './registry.mjs';
 
 export function mintId(byId, base) {
   const slug =
@@ -10,8 +10,6 @@ export function mintId(byId, base) {
   while (byId.has(id)) id = `${slug}_${++suffix}`;
   return id;
 }
-
-const TIMER_PROPERTY = { duration: 'timeDuration', cycle: 'timeCycle', date: 'timeDate' };
 
 function flowNodesOf(container) {
   container.flowElements ??= [];
@@ -38,8 +36,7 @@ function insertionFor(byId, container, operation) {
 }
 
 function addNode({ moddle, byId, changed, created }, operation) {
-  const type = BPMN_TYPE_BY_NODE.get(operation.type);
-  if (!type) throw new Error(`Unknown node type "${operation.type}"`);
+  const definition = block(operation.type);
 
   const container = byId.get(operation.in);
   if (!container) throw new Error(`Container "${operation.in}" not found`);
@@ -49,37 +46,11 @@ function addNode({ moddle, byId, changed, created }, operation) {
     operation.id && !byId.has(operation.id)
       ? operation.id
       : mintId(byId, operation.id || operation.name || operation.type);
-  const element = moddle.create(type, {
+  const element = moddle.create(definition.bpmn, {
     id,
     ...(operation.name ? { name: operation.name } : {}),
   });
-
-  if (operation.event) {
-    const definitionType = BPMN_EVENT_BY_KIND.get(operation.event);
-    if (!definitionType) throw new Error(`Unknown event kind "${operation.event}"`);
-    const definition = moddle.create(definitionType, {});
-    definition.$parent = element;
-    element.eventDefinitions = [definition];
-  }
-
-  if (operation.timer) {
-    if (operation.event !== 'timer') throw new Error('Timer requires event "timer"');
-    const given = Object.keys(TIMER_PROPERTY).filter((key) => operation.timer[key] != null);
-    if (given.length !== 1) {
-      throw new Error('Timer requires exactly one of duration, cycle, or date');
-    }
-    const [definition] = element.eventDefinitions;
-    const expression = moddle.create('bpmn:FormalExpression', { body: operation.timer[given[0]] });
-    expression.$parent = definition;
-    definition[TIMER_PROPERTY[given[0]]] = expression;
-  }
-
-  if (operation.on) {
-    const host = byId.get(operation.on);
-    if (!host) throw new Error(`Boundary host "${operation.on}" not found`);
-    element.attachedToRef = host;
-    if (operation.interrupting === false) element.cancelActivity = false;
-  }
+  definition.build?.(element, operation, { moddle, byId });
 
   element.$parent = container;
   flowNodesOf(container).push(element);

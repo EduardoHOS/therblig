@@ -30,25 +30,34 @@ test('project scopes nodes and flows to one container', async () => {
   assert.ok(projection.flows.every((flow) => nodeIds.has(flow.from) && nodeIds.has(flow.to)));
 });
 
-test('project represents defaults, multiple events, and event subprocesses', async () => {
+test('each block projects the fields BPMN gives its own type, and only those', async () => {
+  const core = await import('../../core/index.mjs');
   const document = await parse(await readFixture());
-  const byId = new Map();
-  for (const element of (await import('../../core/index.mjs')).walk(document.definitions)) {
-    if (element.id) byId.set(element.id, element);
-  }
+  core.applyPatch(document, [{ op: 'add', type: 'subprocess', in: 'Payment', id: 'Sub' }]);
+  const byId = core.index(document.definitions);
 
-  const review = byId.get('Review');
-  review.eventDefinitions = [
+  // An event carries kinds; an unknown vendor kind passes through under its BPMN type.
+  byId.get('Start_1').eventDefinitions = [
     document.moddle.create('bpmn:TimerEventDefinition'),
     { $type: 'vendor:CustomEventDefinition' },
   ];
-  review.default = byId.get('Flow_3');
-  review.triggeredByEvent = true;
+  // `default` belongs to activities and gateways alike.
+  byId.get('Review').default = byId.get('Flow_3');
+  byId.get('Sub').triggeredByEvent = true;
+  // Properties BPMN does not give a user task: the projection must not invent them.
+  byId.get('Review').eventDefinitions = [document.moddle.create('bpmn:TimerEventDefinition')];
+  byId.get('Review').triggeredByEvent = true;
 
-  const node = project(document.definitions).nodes.find((candidate) => candidate.id === 'Review');
-  assert.deepEqual(node.event, ['timer', 'vendor:CustomEventDefinition']);
-  assert.equal(node.default, 'Flow_3');
-  assert.equal(node.eventSubprocess, true);
+  const nodes = project(document.definitions).nodes;
+  const node = (id) => nodes.find((candidate) => candidate.id === id);
+
+  assert.deepEqual(node('Start_1').event, ['timer', 'vendor:CustomEventDefinition']);
+  assert.equal(node('Review').default, 'Flow_3');
+  assert.equal(node('Sub').eventSubprocess, true);
+
+  assert.equal(node('Review').event, undefined);
+  assert.equal(node('Review').eventSubprocess, undefined);
+  assert.equal(node('Sub').default, undefined);
 });
 
 test('project preserves intentionally unresolved collaboration references', () => {

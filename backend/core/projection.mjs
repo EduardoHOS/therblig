@@ -1,5 +1,5 @@
 import { containerOf, walk } from './document.mjs';
-import { EVENT_KIND_BY_BPMN, NODE_TYPE_BY_BPMN } from './vocabulary.mjs';
+import { byBpmn } from './registry.mjs';
 
 function laneIndex(definitions) {
   const lanes = new Map();
@@ -51,23 +51,15 @@ export function project(definitions, { scope = null } = {}) {
       if (element.name) flow.name = element.name;
       if (element.conditionExpression?.body) flow.if = element.conditionExpression.body;
       projection.flows.push(flow);
-    } else if (NODE_TYPE_BY_BPMN.has(type)) {
-      const node = { id: element.id, type: NODE_TYPE_BY_BPMN.get(type) };
+    } else if (byBpmn.has(type)) {
+      const definition = byBpmn.get(type);
+      const node = { id: element.id, type: definition.ir };
       if (element.name) node.name = element.name;
       const container = containerOf(element);
       if (container) node.in = container;
       if (lanes.has(element.id)) node.lane = lanes.get(element.id);
-      if (element.attachedToRef?.id) node.on = element.attachedToRef.id;
 
-      const eventDefinitions = (element.eventDefinitions || [])
-        .map((definition) => EVENT_KIND_BY_BPMN.get(definition.$type) || definition.$type)
-        .filter(Boolean);
-      if (eventDefinitions.length) {
-        node.event = eventDefinitions.length === 1 ? eventDefinitions[0] : eventDefinitions;
-      }
-      if (element.default?.id) node.default = element.default.id;
-      if (element.cancelActivity === false) node.interrupting = false;
-      if (element.triggeredByEvent) node.eventSubprocess = true;
+      Object.assign(node, definition.project?.(element));
       if (element.extensionElements?.values?.length) {
         node.ext = element.extensionElements.values.map((value) => value.$type);
       }

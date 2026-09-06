@@ -144,3 +144,29 @@ drift from the plan; a computed one cannot.
 
 **Reverses if:** an op cannot be expressed as primitives without a new primitive that only that op
 uses. That is the signal the primitive set is wrong, not that the op should reach into the tree.
+
+## ADR-012 — One block, one definition; a slot exists only where blocks differ
+
+`backend/core/blocks/` holds one frozen definition per BPMN element type and `registry.mjs`
+tabulates them. The table replaces three places that each listed types independently: the two
+`Map`s in `vocabulary.mjs`, the `switch` arm in `patch.mjs` that turned an IR word into a moddle
+type, and the `SIZE` table in `placement.mjs`. Adding a block was three edits that could drift;
+it is now one object.
+
+Slots today: `bpmn`, `ir`, `shape`, and the optional `also`, `project` and `build`. Each earns its
+place by the anti-god-object rule — **a slot exists only if at least two blocks implement it
+differently**. `ports`, `check` and `token` are named in the design but are absent here because
+they have no consumer yet; they arrive with the op, lint and simulation work that reads them.
+
+**Rests on:** the projection of all 22 corpus files is byte-identical before and after
+(7,261 lines of IR), and `npm run corpus` output is unchanged.
+
+**Two narrowings, both toward the spec:** the projection is now type-aware, so a user task no
+longer reports `event` or `eventSubprocess` if something puts those properties on it — moddle's
+schema does not give a user task either. And `placeNew` skips an element it has no block for
+instead of inventing a 100x80 box: a pool or lane needs DI, but laying one out is a different
+problem, and the closed vocabulary means `add` can never mint one. `diCoverage` still reports it
+as missing, which is the honest answer.
+
+**Reverses if:** a block needs a slot that only it implements. That is the signal the behaviour
+belongs in the module that consumes it, not in the table.

@@ -1,5 +1,5 @@
 import { mintId } from './patch.mjs';
-import { BPMN_TYPE_BY_NODE } from './vocabulary.mjs';
+import { byIr } from './registry.mjs';
 
 // An op compiles intent into a plan of primitives. It reads the IR, never the tree: everything
 // it emits is applied by patch.mjs, so an op can add height to the API without adding risk.
@@ -66,7 +66,7 @@ function envelope(op, args, { plan, inverse, minted, footprint, explain }) {
 export function insertAfter(ir, args) {
   const { anchor, step, via } = args;
   const node = nodeOf(ir, anchor);
-  if (!BPMN_TYPE_BY_NODE.has(step.type)) {
+  if (!byIr.has(step.type)) {
     throw precondition('unknown-node-type', `Unknown node type "${step.type}"`);
   }
   if (step.type === 'boundary') {
