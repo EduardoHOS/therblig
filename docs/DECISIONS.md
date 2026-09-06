@@ -122,8 +122,11 @@ double-applies the edit.
 
 Target `@modelcontextprotocol/server@2`, not the frozen v1 `@modelcontextprotocol/sdk`.
 
-**Open:** how far back to support older spec revisions. 2026-07-28 shipped five weeks ago
-and client lag is near-certain.
+**Resolved:** `@modelcontextprotocol/server@2.0.0` is published and `serveStdio` handles the era
+decision itself — its `legacy: 'serve'` default pins a 2025-era instance from the same factory for
+a connection that opens with an `initialize` request, so supporting older clients costs nothing
+and needs no code of ours. Verified against the real wire before any of this was built: a spike
+answered `tools/list` and `tools/call` over stdio with `resultType: "complete"` and no handshake.
 
 ## ADR-011 — Ops compile intent to primitives; nothing above `patch.mjs` touches the tree
 
@@ -361,3 +364,34 @@ contract for a caller; they do not replace it.
 
 **`types/` is not committed.** It is built by `npm run check`, and a generated tree in git is a
 tree that drifts.
+
+## ADR-023 — The MCP server proposes freely and publishes under a policy
+
+Every op tool is a dry run: it returns the plan, its exact inverse, the computed risk, every gate
+and the measured diff, and mints a revision. `publish` is the only tool with a side effect, and it
+refuses two things — a revision that failed a gate, and one whose risk is above the server's
+allowance (`TREADLE_ALLOW`, default `safe,additive`). Proposing is always permitted: the refusal is
+about writing, not about looking, and a model that can see the full plan of a destructive edit can
+explain it to the human who has to approve it.
+
+**Handles are opaque and state is ours.** The protocol has no session — the spec's own "Stateful
+Tools" section says a handle is an ordinary string in a tool result and an ordinary argument
+afterwards. `open` mints a UUID, and a handle that encoded the path would invite guessing at
+another one.
+
+**Every mutating tool takes `base_rev` and `patch_id`.** Resumability is gone from the protocol, so
+a dropped stream means the client re-issues the call; a tool that is not idempotent double-applies
+the edit. A repeated `patch_id` returns the first result without re-applying, and a stale
+`base_rev` is refused naming the revision that is current.
+
+**A precondition refusal is a tool error, not a protocol error.** The spec says clients SHOULD feed
+tool execution errors to the model for self-correction and MAY feed protocol errors, which are
+"less likely to result in successful recovery". So `anchor-ambiguous — pass via: F1 | F2` comes
+back as `isError: true` with the remedy in it, and only an unknown tool is a JSON-RPC error.
+
+**Rests on:** eleven smoke tests that spawn the real binary and speak JSON-RPC over stdio,
+including one asserting every line of stdout is a protocol message.
+
+**The SDK stays in `backend/mcp`.** An architecture test asserts the core, `backend/io` and the CLI
+never mention `@modelcontextprotocol`, so the protocol is a delivery surface and not a dependency
+of the product.

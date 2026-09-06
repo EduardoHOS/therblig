@@ -29,6 +29,7 @@
     "types": "tsc -p tsconfig.json && tsc -p tsconfig.consumer.json"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
     "bpmn-auto-layout": "2.0.0-alpha.2",
     "bpmn-moddle": "^10.2.0",
     "bpmnlint": "^11.13.0",
@@ -39,7 +40,8 @@
     "typescript": "7.0.2"
   },
   "bin": {
-    "treadle": "backend/cli/main.mjs"
+    "treadle": "backend/cli/main.mjs",
+    "treadle-mcp": "backend/mcp/server.mjs"
   },
   "types": "types/core/index.d.mts"
 }

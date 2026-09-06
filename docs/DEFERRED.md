@@ -13,13 +13,13 @@ a dangling `calledElement` is reported by nothing today.
 `extract` minting a called process). Resolve them across the loaded set and report what is
 missing from it, without claiming anything about files that were never opened.
 
-## MCP handles and persistence
+## MCP store persistence
 
-ADR-010 selects opaque handles, `base_rev`, and idempotent `patch_id` values, but no MCP
-transport or document store exists.
+Handles live in memory and die with the process, which the `open` tool's description states so a
+model can see it before deciding to create state.
 
-**Trigger:** the first MCP tool. Start with an in-memory store; add persistence only when a
-real deployment requires recovery across process restarts.
+**Trigger:** a deployment that must survive a restart — a hosted server, or a client that reconnects
+and expects its handles back. Until then persistence is a database for a process that has none.
 
 ## Structured telemetry
 

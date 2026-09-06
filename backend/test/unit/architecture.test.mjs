@@ -49,3 +49,14 @@ test('the core never reaches the filesystem; backend/io is the only place that d
     assert.doesNotMatch(source, /from '\.\.\/io\//, file);
   }
 });
+
+test('only backend/mcp knows the protocol; the core and the CLI do not', async () => {
+  const roots = [CORE_ROOT, new URL('../../io/', import.meta.url), new URL('../../cli/', import.meta.url)];
+
+  for (const root of roots) {
+    for (const file of (await readdir(root, { recursive: true })).filter((f) => f.endsWith('.mjs'))) {
+      const source = await readFile(new URL(file, root), 'utf8');
+      assert.doesNotMatch(source, /@modelcontextprotocol/, file);
+    }
+  }
+});
