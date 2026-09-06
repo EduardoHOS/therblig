@@ -31,12 +31,20 @@ test('the table is the closed vocabulary: an unknown IR word is refused', () => 
 });
 
 test('tabulate refuses a malformed or colliding block at import time', () => {
-  const ok = { bpmn: 'bpmn:Task', ir: 'task', shape: { w: 1, h: 1 } };
+  const ok = { bpmn: 'bpmn:Task', ir: 'task', role: 'activity', glyph: null, shape: { w: 1, h: 1 } };
   const cases = [
     [{ ...ok, bpmn: 'Task' }, /Block "task" has no BPMN type/],
     [{ ...ok, ir: '' }, /Block "bpmn:Task" has no IR word/],
     [{ ...ok, shape: { w: 0, h: 1 } }, /Block "task" has no positive shape/],
     [{ ...ok, shape: undefined }, /Block "task" has no positive shape/],
+    [{ ...ok, role: 'artifact' }, /Block "task" has no drawable role/],
+    [{ ...ok, role: undefined }, /Block "task" has no drawable role/],
+    // Not declaring a mark is the error; declaring `null` is a decision the notation respects.
+    [{ ...ok, glyph: undefined }, /Block "task" declares no glyph/],
+    [
+      { ...ok, ir: 'xor', role: 'gateway', glyph: null },
+      /Gateway "xor" has no mark to tell it from the others/,
+    ],
   ];
   for (const [bad, expected] of cases) assert.throws(() => tabulate([bad]), expected);
 

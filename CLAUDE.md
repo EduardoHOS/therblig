@@ -54,9 +54,13 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
 - `gates.mjs` owns the independent checks: parse, XSD, reference integrity, routing
   semantics, bpmnlint, collateral change, diff sanity. `propose.mjs` applies a plan to an isolated copy, places what it created, scores
   every gate, and returns the result without touching the caller's document.
-- `blocks/` holds one definition per BPMN element type: its IR word, DI shape, and the
-  extras it projects and builds. `registry.mjs` tabulates them and is the closed node
-  vocabulary; a type named outside `blocks/` fails the architecture test.
+- `blocks/` holds one definition per BPMN element type: its IR word, DI shape, the notation it
+  wears (`role`, `glyph`, and where relevant `ring` and `border`), and the extras it projects and
+  builds. `registry.mjs` tabulates them and is the closed node vocabulary; a type named outside
+  `blocks/` fails the architecture test. `render.mjs` keeps no type table of its own — it asks the
+  registry, so a new block is drawable or it is a build error.
+- Pools, lanes, message flows, data objects and stores, annotations, groups and associations are
+  projected and drawn, and are deliberately not blocks: they are read, never added.
 - `index.mjs` is the backend core's public surface.
 
 Benchmark modules may import or re-export the core. The core never imports `bench/`.

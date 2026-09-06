@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { blocks } from '../../core/registry.mjs';
 import { parse, project } from '../../core/index.mjs';
-import { readFixture } from '../support/fixture.mjs';
+import { normalizedFixture, readFixture } from '../support/fixture.mjs';
 
 test('project creates a compact coordinate-free view with original identifiers', async () => {
   const document = await parse(await readFixture());
@@ -140,4 +141,22 @@ test('scoped projection retains an attached event even when its container differ
     projection.nodes.map((node) => node.id),
     ['Host', 'Attached'],
   );
+});
+
+test('the artifacts a diagram carries are projected, without becoming addable node types', async () => {
+  const { document } = await normalizedFixture('miwg/B.1.0.bpmn');
+  const ir = project(document.definitions);
+
+  const kinds = new Set((ir.data ?? []).map((item) => item.kind));
+  assert.ok(kinds.has('object'), 'a data object reference');
+  assert.ok(kinds.has('store'), 'a data store reference');
+  assert.equal((ir.notes ?? []).length, 1, 'the text annotation');
+  assert.equal((ir.groups ?? []).length, 1, 'the group');
+  assert.ok((ir.links ?? []).length > 0, 'what the artifacts are associated with');
+
+  // They are read, never written: the closed vocabulary is what `add` accepts, and an artifact is
+  // not in it.
+  const words = new Set(blocks.map((candidate) => candidate.ir));
+  for (const item of ir.data ?? []) assert.equal(words.has(item.kind), false, item.kind);
+  assert.equal((ir.nodes ?? []).some((node) => node.type === 'object'), false);
 });

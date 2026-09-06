@@ -9,6 +9,10 @@
  * @property {IrLane[]} [lanes]
  * @property {IrPool[]} [pools]
  * @property {IrMessageFlow[]} [messageFlows]
+ * @property {IrData[]} [data]
+ * @property {IrNote[]} [notes]
+ * @property {IrGroup[]} [groups]
+ * @property {IrLink[]} [links]
  *
  * @typedef {object} IrProcess
  * @property {string} id
@@ -50,10 +54,46 @@
  * @property {string | null} name
  * @property {string} [from]
  * @property {string} [to]
+ *
+ * @typedef {object} IrData          what the process reads and writes, never what it does
+ * @property {string} id
+ * @property {'object' | 'store' | 'input' | 'output'} kind
+ * @property {string | null} name
+ *
+ * @typedef {object} IrNote          a text annotation, as written
+ * @property {string} id
+ * @property {string | null} text
+ *
+ * @typedef {object} IrGroup
+ * @property {string} id
+ * @property {string | null} name
+ *
+ * @typedef {object} IrLink          an association: a dotted line to an artifact, not a route
+ * @property {string} id
+ * @property {'data' | 'note'} kind
+ * @property {string} [from]
+ * @property {string} [to]
  */
 
 import { containerOf, walk } from './document.mjs';
 import { byBpmn } from './registry.mjs';
+
+/**
+ * What a diagram carries besides its flow. None of these is a block: they are read and drawn, never
+ * added — the closed vocabulary in `registry.mjs` is what `add` accepts, and putting a data object
+ * in it would make `ops` able to mint one without knowing what it should reference.
+ */
+const DATA_KIND = new Map([
+  ['bpmn:DataObjectReference', 'object'],
+  ['bpmn:DataStoreReference', 'store'],
+  ['bpmn:DataInput', 'input'],
+  ['bpmn:DataOutput', 'output'],
+]);
+
+// An association's ends are optional and a data association's source is a list, because BPMN lets
+// several inputs feed one parameter. The drawing needs neither — the DI carries the waypoints — so
+// only the first end is projected, for a reader that wants to know what touches what.
+const first = (value) => (Array.isArray(value) ? value[0]?.id : value?.id);
 
 function laneIndex(definitions) {
   const lanes = new Map();
@@ -76,6 +116,10 @@ export function project(definitions, { scope = null } = {}) {
     lanes: [],
     pools: [],
     messageFlows: [],
+    data: [],
+    notes: [],
+    groups: [],
+    links: [],
   };
 
   for (const element of walk(definitions)) {
@@ -100,6 +144,26 @@ export function project(definitions, { scope = null } = {}) {
         name: element.name ?? null,
         from: element.sourceRef?.id,
         to: element.targetRef?.id,
+      });
+    } else if (DATA_KIND.has(type)) {
+      projection.data.push({ id: element.id, kind: DATA_KIND.get(type), name: element.name ?? null });
+    } else if (type === 'bpmn:TextAnnotation') {
+      projection.notes.push({ id: element.id, text: element.text ?? null });
+    } else if (type === 'bpmn:Group') {
+      projection.groups.push({ id: element.id, name: element.categoryValueRef?.value ?? null });
+    } else if (type === 'bpmn:Association') {
+      projection.links.push({
+        id: element.id,
+        kind: 'note',
+        from: first(element.sourceRef),
+        to: first(element.targetRef),
+      });
+    } else if (type === 'bpmn:DataInputAssociation' || type === 'bpmn:DataOutputAssociation') {
+      projection.links.push({
+        id: element.id,
+        kind: 'data',
+        from: first(element.sourceRef),
+        to: first(element.targetRef),
       });
     } else if (type === 'bpmn:SequenceFlow') {
       const flow = { id: element.id, from: element.sourceRef?.id, to: element.targetRef?.id };

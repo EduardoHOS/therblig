@@ -495,12 +495,102 @@ which box is which and what changed, not to be a modeller.
 
 So there is no second package, no watermark obligation, and nothing new in the dependency tree.
 
-**What it is not.** It draws activities, events, gateways and flows. It does not draw event-type
-icons, pool bands, lane headers, or the marker on an inclusive gateway. A document with no DI is
-told so in the picture rather than given invented coordinates.
+**What it draws is BPMN's own notation, authored here.** Pools and lanes with their name bands,
+message flows dashed between them, the ten event kinds, the marks that tell the five gateways
+apart, the activity types, collapsed subprocesses, data objects and stores, text annotations,
+groups, associations, and the tick and diamond a default and a conditional flow carry. A document
+with no DI is told so in the picture rather than given invented coordinates, and an artifact the DI
+never placed is not drawn — the rule is the same one ADR-003 states for nodes.
+
+**The vocabulary lives in `blocks/`, not in the renderer.** Each block declares its `role` (the
+family whose outline it takes), its `glyph` (its mark, authored by us in a 16×16 box), and where
+relevant its `ring` and `border`. An event's mark comes from its kind rather than its block,
+because one StartEvent has ten possible marks. `registry.mjs` refuses a block that declares no
+role, and refuses a gateway with no mark at all — without one, all five diamonds are the same
+shape. The renderer therefore keeps no table of its own and cannot fall behind the vocabulary: a
+new block is drawable or it is a build error.
+
+**The drawing is also an index.** Every element carries `data-id` and `data-kind`, and a node also
+carries what it is in, whose lane it is in, what it is attached to, the kind it waits for, and how
+it changed. A mark carries `data-glyph`; a flow decoration carries `data-mark`. An agent holding
+the SVG can answer what a shape is and what surrounds it without opening the file again — which is
+the point of drawing it at all in a tool an agent proposes changes through.
 
 **`treadle render <file> --against <other>`** colours what a `review` would have described: green
 for added, red for removed, amber for rerouted or retyped, teal for renamed or moved.
 
 **Reverses if:** someone needs to *edit* on a canvas. That is `bpmn-js`'s job and a separate
 package's problem, and this renderer would not be the thing to grow into it.
+
+## ADR-029 — The Studio is a review surface, and it lives outside the published package
+
+`frontend/` is a Next.js app that opens the `.bpmn` files in a workspace directory and shows what
+the core already knows about each one: the projection, the gate results, the review packet against
+a second file, and the SVG from ADR-028 with pan, zoom, and selection over the ids that SVG
+carries.
+
+**It reviews; it does not model.** The canvas was the input device in every BPMN tool built before
+an agent could write the edit. Here the agent proposes and the person judges, so the canvas is
+where a proposal is read, not where it is drawn. A modeller already exists — `bpmn-js` — and using
+it would take back the watermark obligation ADR-009 and ADR-028 both refuse.
+
+**It is a separate npm workspace, not part of `treadle`.** The published package is the core, the
+CLI, and the MCP server; nothing in `backend/` imports anything under `frontend/`. The app depends
+on the core through `file:..` and consumes the TypeScript contracts PR-07 emits from JSDoc, which
+is how a hand-written `Ir` type was caught disagreeing with the real `Projection` at build time.
+
+**Everything stays on the machine.** `TREADLE_WORKSPACE` names one directory, every path is
+confined to it by `realpath`, and there is no network call, no telemetry, and no upload.
+
+**Two things the first version got wrong, both found by looking at the rendered page.** A Tailwind
+v4 `@theme` block nested in `@media (prefers-color-scheme: dark)` is hoisted out of the media
+query, so the app was dark unconditionally; the light palette is declared in `@theme` and the dark
+one redefines the same custom properties under the media query. And the SVG's structural colours
+are now `var(--treadle-ink, …)` and friends, so the same drawing reads on a dark page and in a
+`.svg` file the CLI wrote, where the fallbacks resolve to the light palette.
+
+**Light by default, and the choice is the reader's.** `prefers-color-scheme` is deliberately not
+consulted: a document that changes colour between one visit and the next is a surprise, not a
+preference. The palette is light, dark is stamped on the root element by a switch, and the choice is
+remembered.
+
+**Four interaction defects, each found by driving the real browser rather than by looking at a
+screenshot.** All four looked fine in a picture and were broken in use:
+
+- React registers its wheel listener as passive, so `preventDefault` in `onWheel` is ignored and a
+  pinch zooms the whole page. The wheel is handled natively instead.
+- `setPointerCapture` retargets every later pointer event — and the click the browser derives from
+  them — at the capture element, so a hit test in `onClick` always found the frame. The test happens
+  on the way down, and a selection is committed on the way up only if the pointer barely moved.
+- A label is a sibling of the shape it names, not a child, so `closest('[data-id]')` from the text
+  reached the drawing root: clicking the middle of a task selected nothing. Every drawn piece now
+  carries the id of what it belongs to.
+- A constant imported from a `'use client'` module into a server component arrives as a client
+  reference proxy, not its value. The pre-paint theme script read
+  `localStorage.getItem('function() { throw ... }')` and the theme never survived a reload.
+
+**Reverses if:** someone needs to edit on the canvas, or the workspace stops being a local
+directory. The first is ADR-028's reversal, not this one's; the second makes path confinement a
+server's problem rather than a `realpath` call.
+
+
+## ADR-030 — Artifacts are projected but never addable
+
+`project()` returns `data`, `notes`, `groups` and `links` alongside the flow: data objects and
+stores, the inputs and outputs an activity declares, text annotations, groups, and the associations
+that tie them to the work.
+
+**They are not blocks.** The registry is the closed vocabulary `add` accepts, and a data object in
+it would let `ops` mint one with nothing to reference — a `DataObjectReference` that references no
+`DataObject` is a dangling reference the integrity gate would then have to report. Reading them
+costs nothing and is what a reviewer needs; writing them is a separate decision with its own
+invariants.
+
+**Measured, not assumed.** Across the 23 corpus files the renderer was silently dropping 23 pools,
+22 lanes, 18 message flows, 16 data objects, 11 data stores, 14 data inputs and outputs, 62 data
+associations, 5 associations, 3 text annotations and 2 groups — every one of them positioned by the
+DI. Thirteen of the 23 files have pools, so more than half the corpus was being drawn as a bare
+flow with its organisational structure removed.
+
+**Reverses if:** an op needs to create or retarget a data association. That makes data a write
+concern, and the blocks are where a write concern belongs.
