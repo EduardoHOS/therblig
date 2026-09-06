@@ -13,6 +13,7 @@ import {
   propose,
   references,
   rename,
+  review,
   risk,
   timeout,
   xsdValid,
@@ -224,6 +225,18 @@ export function toolsFor({ store, root, autonomous }) {
         risk: risk(input.plan),
         explain: `${input.plan.length} operations, as given.`,
       }),
+  );
+
+  add(
+    'review',
+    'What a proposed revision changes against the published one, as a packet a human reads: added, removed, renamed, rerouted and reowned elements by id, the gates, and the cycle-time delta when the model carries durations.',
+    object(
+      { handle: HANDLE, rev: { type: 'string' }, when: { type: 'object' } },
+      ['handle', 'rev'],
+    ),
+    async ({ handle, rev, when }) => ({
+      text: await review(store.head(handle).xml, store.revision(handle, rev).xml, { when }),
+    }),
   );
 
   add(

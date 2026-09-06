@@ -8,6 +8,7 @@ import {
   project,
   propose,
   references,
+  review,
   semantics,
   serialize,
   xsdValid,
@@ -24,6 +25,7 @@ const USAGE = `treadle — read, explain and edit the .bpmn files you already ha
   treadle fmt <file> [--write]            the one-time normalisation, on its own
   treadle apply <file> --op <name> --args <json> [--write]
   treadle apply <file> --plan <file.json> [--write]
+  treadle review <as-is> <to-be>          what changed, what it risks, what it costs
 
   --root <dir>    widen the workspace (default: the working directory)
   --allow <list>  risk levels this edit may reach (default: safe,additive)
@@ -31,7 +33,7 @@ const USAGE = `treadle — read, explain and edit the .bpmn files you already ha
 
 Every edit is a dry run until --write, and every edit is refused if a gate fails.`;
 
-const COMMANDS = ['project', 'lint', 'explain', 'fmt', 'apply'];
+const COMMANDS = ['project', 'lint', 'explain', 'fmt', 'apply', 'review'];
 const OPTIONS = {
   scope: { type: 'string' },
   root: { type: 'string' },
@@ -79,6 +81,19 @@ export async function main(argv) {
   } catch (error) {
     const hint = error.code === 'path-outside-root' ? ' — pass --root to widen it' : '';
     return fail(`${error.message}${hint}`);
+  }
+
+  if (command === 'review') {
+    const [, , target] = parsed.positionals;
+    if (!target) return fail('review needs two files: the as-is and the to-be\n\n' + USAGE);
+    let proposed;
+    try {
+      proposed = await readBpmn(target, { root });
+    } catch (error) {
+      return fail(error.message);
+    }
+    process.stdout.write(await review(source.xml, proposed.xml, {}));
+    return undefined;
   }
 
   if (command === 'project') {

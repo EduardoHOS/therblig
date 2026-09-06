@@ -208,3 +208,29 @@ test('a precondition refusal reaches the user as its remedy, not as a stack', as
   assert.match(stderr, /use connect/);
   assert.doesNotMatch(stderr, /at .*\.mjs:\d+/);
 });
+
+test('review reads two files and says what changed between them', async () => {
+  const cwd = await workspace();
+  await treadle(['fmt', 'p.bpmn', '--write'], cwd);
+  await cp(join(cwd, 'p.bpmn'), join(cwd, 'to-be.bpmn'));
+  await treadle(
+    ['apply', 'to-be.bpmn', '--op', 'rename', '--args', '{"id":"Charge","name":"Cobrar"}', '--write'],
+    cwd,
+  );
+
+  const { code, stdout } = await treadle(['review', 'p.bpmn', 'to-be.bpmn'], cwd);
+
+  assert.equal(code, 0);
+  assert.match(stdout, /^# Review$/m);
+  assert.match(stdout, /renamed/);
+  assert.match(stdout, /"Charge card" → "Cobrar"/);
+  assert.match(stdout, /Every gate passed/);
+});
+
+test('review needs both sides and says so', async () => {
+  const cwd = await workspace();
+  const { code, stderr } = await treadle(['review', 'p.bpmn'], cwd);
+
+  assert.equal(code, 2);
+  assert.match(stderr, /two files/);
+});

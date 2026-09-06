@@ -434,3 +434,24 @@ warning gets quoted without the warning.
 
 **Reverses if:** a model needs sub-scope simulation to be useful. A subprocess runs as one opaque
 step today, which is a stated limit rather than a hidden one.
+
+## ADR-026 — The review packet is the deliverable; the diagram is not
+
+`review(before, after)` produces what a reviewer reads: what was added, removed, renamed,
+rerouted, retyped and reowned — **by id**, because ids survive an edit, so a rename is a rename
+rather than a removal and an addition. Then the gates, the diagram delta, and the cycle time.
+
+**It is silent about cost when it does not know.** No annotated duration, or any gateway the
+scenario did not decide, and the packet says `no estimate` and names what would fix it. A number
+beside a caveat gets quoted without the caveat.
+
+**Two risk levels, and it says which it has.** An op knows a reroute is part of an insertion; a
+diff only sees the reroute, so a level derived from a diff over-reports. `review` takes the op's
+level when it has one and labels its own as derived when it does not.
+
+**`noCollateral` is excluded.** It asks whether anything was touched that the caller did not
+intend, and between two arbitrary files there is no intent to compare against. It belongs to
+`propose`, which knows what was asked for.
+
+**An unnamed lane is reported by its id.** `miwg/C.1.0` has one, and a packet that says a step
+moved out of `""` tells a reviewer nothing.
