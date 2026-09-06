@@ -8,6 +8,7 @@ import {
   project,
   propose,
   references,
+  semantics,
   serialize,
   xsdValid,
 } from '../core/index.mjs';
@@ -96,6 +97,7 @@ export async function main(argv) {
       parses: await parses(source.xml),
       xsdValid: await xsdValid(source.xml),
       references: await references(source.xml),
+      semantics: await semantics(source.xml),
       lintClean: await lintClean(source.xml, { config: { extends: 'bpmnlint:correctness' } }),
     };
     const { ok, text } = report(gates);

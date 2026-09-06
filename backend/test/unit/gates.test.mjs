@@ -31,7 +31,7 @@ test('scoreAll stops at the first gate when the result does not parse', async ()
 
   assert.deepEqual(Object.keys(result.gates), ['parses']);
   assert.equal(result.passed, 0);
-  assert.equal(result.of, 6);
+  assert.equal(result.of, 7);
 });
 
 test('the XSD gate resolves its schemas against the module, not the working directory', async () => {

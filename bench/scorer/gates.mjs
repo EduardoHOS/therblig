@@ -9,5 +9,6 @@ export {
   parses,
   references,
   scoreAll,
+  semantics,
   xsdValid,
 } from '../../backend/core/gates.mjs';

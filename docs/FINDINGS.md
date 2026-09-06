@@ -389,3 +389,33 @@ Both are covered by smoke tests that spawn the real stdio server. Reproduce:
 ```sh
 node --test backend/test/smoke/mcp.test.mjs
 ```
+
+## F16 — three candidate semantic rules, and only one of them is ours to write
+
+The plan scoped a graph-global `check` module from whatever the bake-off revealed. The bake-off
+has not run, so the scope came from the same discipline F10 used instead: propose a rule, build the
+document it should catch, and check whether anything already catches it.
+
+| candidate | XSD | `bpmnlint:correctness` | `bpmnlint:recommended` | verdict |
+|---|---|---|---|---|
+| a node unreachable from any start | passes | passes | **`no-disconnected`** | not ours |
+| a node that reaches no end | passes | **catches** | — | not ours |
+| an event gateway whose target cannot wait | passes | passes | passes | **ours** |
+
+An event-based gateway is a race, and every path out of it must begin with something that can
+wait — a catch event or a receive task. A plain task on one of those paths wins the race the
+instant the gateway is reached, so the gateway decides nothing. Nothing in the toolchain says so.
+
+That is the whole of the `semantics` gate: **one rule**, because one rule is what the evidence
+supports. Two of the three candidates would have been duplicated work, and `explain` already
+reports reachability as a reading rather than as a gate, which is where it belongs when bpmnlint
+gates it.
+
+The 22 MIWG models are clean under this rule, so it is a hard gate with a differential wrapper in
+`scoreAll` — the same bargain as `references` and `bpmnlint:recommended`.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/semantics.test.mjs
+```

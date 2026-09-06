@@ -53,6 +53,7 @@ test('a proposal reports every gate, and the diff it measured', async () => {
     'parses',
     'xsdValid',
     'references',
+    'semantics',
     'lintClean',
     'noCollateral',
     'diffSanity',

@@ -395,3 +395,17 @@ including one asserting every line of stdout is a protocol message.
 **The SDK stays in `backend/mcp`.** An architecture test asserts the core, `backend/io` and the CLI
 never mention `@modelcontextprotocol`, so the protocol is a delivery surface and not a dependency
 of the product.
+
+## ADR-024 — A semantic rule ships only with proof that nothing else catches it
+
+The `semantics` gate holds one rule. Two other candidates were built, measured, and dropped
+because `bpmnlint` already catches them (F16). A gate that repeats another gate costs the same to
+run and teaches a reader that a finding is our own when it is not.
+
+The test for each rule constructs the document it should catch and asserts XSD validity and both
+bpmnlint presets pass it *before* asserting this gate does not — so a rule that stops being ours,
+because a linter grew it, fails the suite rather than quietly duplicating.
+
+**No `check` slot on the block table.** One rule on one block would be a slot with a single
+implementation, which ADR-012 rules out. The rule lives in the module that consumes it, and moves
+to the table when a second block needs one.

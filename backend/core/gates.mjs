@@ -12,7 +12,7 @@
 import { BpmnModdle } from 'bpmn-moddle';
 import { readFileSync } from 'node:fs';
 import { containerOf, walk } from './document.mjs';
-import { block } from './registry.mjs';
+import { block, byBpmn } from './registry.mjs';
 import Linter from 'bpmnlint/lib/linter.js';
 import NodeResolver from 'bpmnlint/lib/resolver/node-resolver.js';
 import * as xmllint from 'xmllint-wasm';
@@ -91,6 +91,40 @@ const REQUIRED_REFS = {
   'bpmndi:BPMNShape': ['bpmnElement'],
   'bpmndi:BPMNEdge': ['bpmnElement'],
 };
+
+// Gate 7. Routing semantics that survive the non-overlap check against every other gate. There
+// is exactly one so far, and that is the honest size of it: an unreachable node and a node that
+// reaches no end are both already caught by bpmnlint, so neither belongs here. Rules arrive when
+// a measured failure shows nothing else catches them.
+//
+// An event-based gateway is a race. Every path out of it must begin with something that can
+// wait — a catch event or a receive task — or that path wins the race instantly and the gateway
+// decides nothing. The XSD permits it and both bpmnlint presets pass it.
+const EVENT_GATEWAY = block('event_gw').bpmn;
+const CAN_WAIT = new Set(['catch', 'receive']);
+
+export async function semantics(xml) {
+  const { rootElement } = await new BpmnModdle().fromXML(xml);
+  const findings = [];
+
+  for (const el of walk(rootElement)) {
+    if (el.$type !== EVENT_GATEWAY) continue;
+    for (const flow of el.outgoing ?? []) {
+      const target = flow.targetRef;
+      const kind = target && byBpmn.get(target.$type)?.ir;
+      if (kind && !CAN_WAIT.has(kind)) {
+        findings.push({
+          rule: 'event-gateway-target-cannot-wait',
+          id: el.id,
+          target: target.id,
+          type: kind,
+        });
+      }
+    }
+  }
+
+  return { ok: findings.length === 0, findings };
+}
 
 const referenceKey = (finding) => JSON.stringify(finding);
 
@@ -216,7 +250,7 @@ export function diffSanity(beforeXml, afterXml) {
 // did this edit introduce style errors that were not already there?
 export async function scoreAll(beforeXml, afterXml, opts = {}) {
   const g1 = await parses(afterXml);
-  if (!g1.ok) return { gates: { parses: g1 }, passed: 0, of: 6 };
+  if (!g1.ok) return { gates: { parses: g1 }, passed: 0, of: 7 };
   const hasDI = /BPMNShape/.test(afterXml);
   const [g2, hard, styleAfter, styleBefore, g4] = await Promise.all([
     xsdValid(afterXml),
@@ -232,11 +266,28 @@ export async function scoreAll(beforeXml, afterXml, opts = {}) {
   // carry findings of its own — C.7.0 ships a BPMNEdge with no bpmnElement — and blocking every
   // edit to it would punish the edit for the input's pre-existing state. The question is whether
   // THIS edit broke a reference.
-  const [refsBefore, refsAfter] = await Promise.all([references(beforeXml), references(afterXml)]);
-  const known = new Set(refsBefore.findings.map(referenceKey));
-  const brokenHere = refsAfter.findings.filter((finding) => !known.has(referenceKey(finding)));
-  const g6 = { ok: brokenHere.length === 0, introduced: brokenHere, findings: refsAfter.findings };
-  const gates = { parses: g1, xsdValid: g2, references: g6, lintClean: g3, noCollateral: g4, diffSanity: g5 };
-  const passed = [g1, g2, g3, g4, g5, g6].filter((gate) => gate.ok).length;
-  return { gates, passed, of: 6 };
+  const [refsBefore, refsAfter, semBefore, semAfter] = await Promise.all([
+    references(beforeXml),
+    references(afterXml),
+    semantics(beforeXml),
+    semantics(afterXml),
+  ]);
+  const differential = (before, after) => {
+    const known = new Set(before.findings.map(referenceKey));
+    const introduced = after.findings.filter((finding) => !known.has(referenceKey(finding)));
+    return { ok: introduced.length === 0, introduced, findings: after.findings };
+  };
+  const g6 = differential(refsBefore, refsAfter);
+  const g7 = differential(semBefore, semAfter);
+  const gates = {
+    parses: g1,
+    xsdValid: g2,
+    references: g6,
+    semantics: g7,
+    lintClean: g3,
+    noCollateral: g4,
+    diffSanity: g5,
+  };
+  const passed = [g1, g2, g3, g4, g5, g6, g7].filter((gate) => gate.ok).length;
+  return { gates, passed, of: 7 };
 }
