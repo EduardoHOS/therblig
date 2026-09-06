@@ -1,7 +1,7 @@
 {
   "name": "therblig",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "Read, explain, lint and edit the .bpmn files already in your repo, without wrecking the diagram.",
   "license": "Apache-2.0",
   "type": "module",
@@ -24,7 +24,9 @@
   "files": [
     "src",
     "third_party",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
@@ -35,5 +37,13 @@
   "bin": {
     "therblig": "./src/cli/bin.mjs"
   },
-  "mcpName": "io.github.eduardohos/therblig"
+  "mcpName": "io.github.eduardohos/therblig",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EduardoHOS/therblig.git",
+    "directory": "packages/therblig"
+  },
+  "homepage": "https://github.com/EduardoHOS/therblig#readme",
+  "bugs": "https://github.com/EduardoHOS/therblig/issues",
+  "author": "EduardoHOS"
 }

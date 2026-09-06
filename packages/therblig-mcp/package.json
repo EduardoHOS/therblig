@@ -1,7 +1,7 @@
 {
   "name": "therblig-mcp",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "MCP server for BPMN 2.0 — read, explain, lint and preview edits to the .bpmn files already in your repo.",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,7 +13,9 @@
   },
   "files": [
     "bin.mjs",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "keywords": [
     "bpmn",
@@ -26,5 +28,13 @@
   "dependencies": {
     "therblig": "0.1.0"
   },
-  "mcpName": "io.github.eduardohos/therblig"
+  "mcpName": "io.github.eduardohos/therblig",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EduardoHOS/therblig.git",
+    "directory": "packages/therblig-mcp"
+  },
+  "homepage": "https://github.com/EduardoHOS/therblig#readme",
+  "bugs": "https://github.com/EduardoHOS/therblig/issues",
+  "author": "EduardoHOS"
 }
