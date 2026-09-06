@@ -479,3 +479,28 @@ divergence.
 
 **Reverses if:** a trace is ever produced from something other than a person or a script naming
 ids. At that point the mapping is the feature, and this is its consumer.
+
+## ADR-028 — The viewer is ours, and it renders the DI the file already carries
+
+`render(definitions)` produces a read-only SVG. Every coordinate comes from the document's own DI;
+nothing here lays anything out, which is ADR-003's rule applied to drawing.
+
+**It does not use `bpmn-js`, and the plan that called for it contradicted itself.** That plan said
+the viewer would "receive the IR and the DI, never the file" *and* that it would use `bpmn-js` —
+but `bpmn-js` renders BPMN XML, so the two cannot both be true. Following the dependency would
+have meant handing it the file after all, in a separate package, under a licence requiring a
+visible watermark on every diagram (ADR-009). The escape hatch the design named as a fallback was
+the better answer all along: each block already declares its `shape`, and a review needs to show
+which box is which and what changed, not to be a modeller.
+
+So there is no second package, no watermark obligation, and nothing new in the dependency tree.
+
+**What it is not.** It draws activities, events, gateways and flows. It does not draw event-type
+icons, pool bands, lane headers, or the marker on an inclusive gateway. A document with no DI is
+told so in the picture rather than given invented coordinates.
+
+**`treadle render <file> --against <other>`** colours what a `review` would have described: green
+for added, red for removed, amber for rerouted or retyped, teal for renamed or moved.
+
+**Reverses if:** someone needs to *edit* on a canvas. That is `bpmn-js`'s job and a separate
+package's problem, and this renderer would not be the thing to grow into it.

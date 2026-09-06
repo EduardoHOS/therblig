@@ -2,6 +2,7 @@
 import { parseArgs } from 'node:util';
 
 import {
+  changesFrom,
   conform,
   diffSanity,
   lintClean,
@@ -9,6 +10,7 @@ import {
   project,
   propose,
   references,
+  render,
   review,
   semantics,
   serialize,
@@ -28,6 +30,7 @@ const USAGE = `treadle — read, explain and edit the .bpmn files you already ha
   treadle apply <file> --plan <file.json> [--write]
   treadle review <as-is> <to-be>          what changed, what it risks, what it costs
   treadle conform <file> --trace <ids>    replay what happened against what the model allows
+  treadle render <file> [--against <f>]   an SVG of the diagram the file already describes
 
   --root <dir>    widen the workspace (default: the working directory)
   --allow <list>  risk levels this edit may reach (default: safe,additive)
@@ -35,10 +38,11 @@ const USAGE = `treadle — read, explain and edit the .bpmn files you already ha
 
 Every edit is a dry run until --write, and every edit is refused if a gate fails.`;
 
-const COMMANDS = ['project', 'lint', 'explain', 'fmt', 'apply', 'review', 'conform'];
+const COMMANDS = ['project', 'lint', 'explain', 'fmt', 'apply', 'review', 'conform', 'render'];
 const OPTIONS = {
   scope: { type: 'string' },
   trace: { type: 'string' },
+  against: { type: 'string' },
   root: { type: 'string' },
   op: { type: 'string' },
   args: { type: 'string' },
@@ -84,6 +88,21 @@ export async function main(argv) {
   } catch (error) {
     const hint = error.code === 'path-outside-root' ? ' — pass --root to widen it' : '';
     return fail(`${error.message}${hint}`);
+  }
+
+  if (command === 'render') {
+    let changed = {};
+    if (parsed.values.against) {
+      let other;
+      try {
+        other = await readBpmn(parsed.values.against, { root });
+      } catch (error) {
+        return fail(error.message);
+      }
+      changed = await changesFrom(other.xml, source.xml);
+    }
+    process.stdout.write(render(source.document.definitions, { changed, title: file }));
+    return undefined;
   }
 
   if (command === 'conform') {

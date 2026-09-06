@@ -188,3 +188,23 @@ test('conform replays a trace and names both the divergence and what nobody does
   assert.equal(missing.code, 2);
   assert.match(missing.stderr, /--trace/);
 });
+
+test('render writes an SVG of the file, and colours a diff when given one', async () => {
+  const plain = await treadle(['render', 'handmade/parallel-join.bpmn']);
+  assert.equal(plain.code, 0);
+  assert.match(plain.stdout, /^<svg xmlns/);
+  assert.match(plain.stdout, /Check fraud/);
+
+  const scratch = await mkdtemp(join(tmpdir(), 'treadle-render-'));
+  await cp(join(CORPUS, 'handmade/parallel-join.bpmn'), join(scratch, 'as-is.bpmn'));
+  await cp(join(CORPUS, 'handmade/parallel-join.bpmn'), join(scratch, 'to-be.bpmn'));
+  await treadle(
+    ['apply', 'to-be.bpmn', '--op', 'rename', '--args', '{"id":"Pay","name":"Settle claim"}', '--write'],
+    { cwd: scratch },
+  );
+
+  const coloured = await treadle(['render', 'to-be.bpmn', '--against', 'as-is.bpmn'], { cwd: scratch });
+  assert.equal(coloured.code, 0);
+  assert.match(coloured.stdout, /#0E6B60/, 'the renamed step is highlighted');
+  assert.match(coloured.stdout, /Settle claim/);
+});

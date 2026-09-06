@@ -19,6 +19,7 @@ npx treadle lint process.bpmn           # parse, XSD, references, routing semant
 npx treadle apply process.bpmn --op timeout \
   --args '{"on":"Review","after":"P3D","to":"Escalate","name":"Late"}' --write
 npx treadle review as-is.bpmn to-be.bpmn
+npx treadle render to-be.bpmn --against as-is.bpmn > diff.svg
 npx treadle-mcp                         # 17 tools over stdio, for an agent
 ```
 
