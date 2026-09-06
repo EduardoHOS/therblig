@@ -1,9 +1,8 @@
 {
-  "name": "treadle-bench",
-  "version": "0.0.0",
-  "private": true,
+  "name": "treadle",
+  "version": "0.1.0",
   "type": "module",
-  "description": "Benchmark harness for Treadle: does a structured patch API make an LLM more correct at editing BPMN than editing the XML directly?",
+  "description": "Read, explain, lint and edit the .bpmn files you already have \u2014 from a CLI, an MCP server, or a library. Engine-neutral, offline, no account.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/EduardoHOS/treadle#readme",
   "bugs": "https://github.com/EduardoHOS/treadle/issues",
@@ -28,17 +27,19 @@
     "inventory": "node bench/tasks/inventory.mjs bench/corpus",
     "types": "tsc -p tsconfig.json && tsc -p tsconfig.consumer.json",
     "bench:agent": "node --env-file-if-exists=.env bench/harness/run.mjs",
-    "bench:replay": "node bench/harness/replay.mjs"
+    "bench:replay": "node bench/harness/replay.mjs",
+    "prepack": "npm run types",
+    "pack:check": "npm pack --dry-run"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
-    "bpmn-auto-layout": "2.0.0-alpha.2",
     "bpmn-moddle": "^10.2.0",
     "bpmnlint": "^11.13.0",
     "xmllint-wasm": "^5.3.0"
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.263",
+    "bpmn-auto-layout": "2.0.0-alpha.2",
     "oxlint": "1.81.0",
     "typescript": "7.0.2",
     "zod": "4.5.4"
@@ -47,5 +48,34 @@
     "treadle": "backend/cli/main.mjs",
     "treadle-mcp": "backend/mcp/server.mjs"
   },
-  "types": "types/core/index.d.mts"
+  "types": "types/core/index.d.mts",
+  "keywords": [
+    "bpmn",
+    "bpmn2",
+    "mcp",
+    "process",
+    "workflow",
+    "agent",
+    "cli"
+  ],
+  "exports": {
+    ".": {
+      "types": "./types/core/index.d.mts",
+      "default": "./backend/core/index.mjs"
+    },
+    "./io": {
+      "types": "./types/io/bpmn-file.d.mts",
+      "default": "./backend/io/bpmn-file.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "backend/cli/",
+    "backend/core/",
+    "backend/io/",
+    "backend/mcp/",
+    "third_party/omg/",
+    "types/",
+    "NOTICE"
+  ]
 }

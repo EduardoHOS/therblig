@@ -3,7 +3,7 @@ Copyright 2026 Treadle contributors
 
 This product includes software developed at bpmn.io (https://bpmn.io),
 Copyright (c) 2014-present Camunda Services GmbH, licensed under the MIT License:
-bpmn-moddle, moddle, moddle-xml, diagram-js, bpmn-auto-layout.
+bpmn-moddle, moddle, moddle-xml, diagram-js, bpmn-auto-layout. (development only since v0.1.0; not shipped)
 
 This product includes bpmnlint (https://github.com/bpmn-io/bpmnlint),
 Copyright (c) 2018-present bpmn.io Contributors, licensed under the MIT License.

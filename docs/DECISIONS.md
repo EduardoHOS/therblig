@@ -66,10 +66,14 @@ got one. Build fails below 100%.
 
 **Rests on:** F4 — `C.4.0` lost 52 of 107 elements and emitted zero warnings.
 
-`bpmn-auto-layout@2.0.0-alpha.2` is pinned exactly and vendored. It is an unreleased alpha
-under a `next` dist-tag from a package that ships no LICENSE file (MIT is declared in
-`package.json` and README only). This is the single largest supply-chain exposure in the
-project and is recorded as such, not as a footnote.
+`bpmn-auto-layout@2.0.0-alpha.2` is pinned exactly. It is an unreleased alpha under a `next`
+dist-tag from a package that ships no LICENSE file (MIT is declared in `package.json` and README
+only).
+
+**Resolved for anyone who installs this (ADR-028).** The layouter is used by two bench probes and
+by nothing the package ships — `placement.mjs` places new elements itself, which is the point of
+ADR-003 — so it moved to `devDependencies` at v0.1.0. The exposure stays ours and stops being the
+consumer's, and CI fails if it comes back into the production tree.
 
 ## ADR-006 — `bpmnlint:correctness` is a hard gate; `recommended` is differential
 

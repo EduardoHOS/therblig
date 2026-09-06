@@ -6,10 +6,23 @@ without wrecking the diagram.**
 An open-source MCP server, CLI and library for BPMN 2.0. Engine-neutral, file-native,
 no account, no server, works offline. Apache-2.0.
 
-> Status: **week 0.** The structured benchmark arm is now the functional core in
-> `backend/core/`; the CLI, MCP server, and published library do not exist yet. See
-> [docs/FINDINGS.md](docs/FINDINGS.md) for what has been measured and
-> [docs/DECISIONS.md](docs/DECISIONS.md) for what was decided on the strength of it.
+> Status: **v0.1.** The core, the CLI and the MCP server exist and are covered. The bake-off
+> that the whole premise rests on has **not** been run, so nothing here claims a structured API
+> makes an agent more correct — see [docs/FINDINGS.md](docs/FINDINGS.md) for what has been
+> measured and [docs/DECISIONS.md](docs/DECISIONS.md) for what was decided on the strength of it.
+
+```sh
+npm install treadle
+
+npx treadle explain process.bpmn        # a deterministic reading: handlers, dead ends, spine
+npx treadle lint process.bpmn           # parse, XSD, references, routing semantics, bpmnlint
+npx treadle apply process.bpmn --op timeout \
+  --args '{"on":"Review","after":"P3D","to":"Escalate","name":"Late"}' --write
+npx treadle review as-is.bpmn to-be.bpmn
+npx treadle-mcp                         # 17 tools over stdio, for an agent
+```
+
+Every edit is a dry run until `--write`, and every edit is refused if a gate fails.
 
 ---
 
@@ -40,6 +53,10 @@ export rewrites only what changed.
 | MIWG reference models parsed | **22/22**, 0 errors |
 | MIWG reference models XSD-valid | **22/22** |
 | `bpmn-auto-layout@2.0.0-alpha.2` full-file layout | **fails on 9/22** — 8 silent, 1 crash |
+| Broken references nothing else catches | **7 of 8 kinds** — only a duplicate id is caught by the XSD |
+| `del` leaving orphaned DI behind | found by that gate, on the first real edit |
+| A fork on the corpus: shapes moved by one delta | **18 / 18** file-and-op combinations |
+| MIWG models the token machine runs or refuses by name | **21 / 21** — 16 run, 5 named |
 
 That last row is why this is an editing tool and not a diagram generator.
 Details and repro steps: [docs/FINDINGS.md](docs/FINDINGS.md).
@@ -47,9 +64,12 @@ Details and repro steps: [docs/FINDINGS.md](docs/FINDINGS.md).
 ## Repo layout
 
 ```
-backend/        the functional product core and its tests
-  core/         parse, project, patch and incrementally place BPMN
-  test/         unit and integration tests for the core
+backend/        the product and its tests
+  core/         parse, project, patch, place, gate, simulate, diff
+  io/           the only filesystem boundary: confinement and atomic replacement
+  cli/          treadle
+  mcp/          treadle-mcp — stateless stdio, handles, risk policy
+  test/         unit, integration and smoke tests
 bench/          the week-1 bake-off harness
   corpus/       BPMN fixtures + profilers (see corpus/PROVENANCE.md)
   scorer/       the five scoring gates

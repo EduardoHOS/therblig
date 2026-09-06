@@ -55,6 +55,26 @@ jobs:
           done
           exit $found
 
+      # What a consumer installs is the production tree. The bench's devDependencies — the
+      # unreleased layouter alpha among them — are ours to carry, not theirs.
+      - name: the published package installs and runs
+        run: |
+          set -e
+          npm run types
+          tarball=$(npm pack | tail -1)
+          work=$(mktemp -d)
+          cp "$tarball" bench/corpus/miwg/C.9.0.bpmn "$work/"
+          cd "$work"
+          npm init -y > /dev/null
+          npm install "./$(basename "$tarball")" > /dev/null
+          npx treadle lint C.9.0.bpmn
+          npx treadle explain C.9.0.bpmn > /dev/null
+          if npm ls --omit=dev --all 2>/dev/null | grep -q bpmn-auto-layout; then
+            echo "::error::bpmn-auto-layout is back in the production tree. It is an"
+            echo "::error::unreleased alpha with no LICENSE file; see ADR-005."
+            exit 1
+          fi
+
   corpus-integrity:
     name: corpus integrity
     runs-on: ubuntu-latest
