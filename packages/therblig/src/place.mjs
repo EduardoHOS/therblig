@@ -218,11 +218,29 @@ export function placeNew({ moddle, definitions }, ids) {
     const b = bounds(byElement.get(el.targetRef?.id));
     if (!a || !b) continue;
 
-    const from = { x: a.x + a.w, y: a.y + a.h / 2 };
-    const to = { x: b.x, y: b.y + b.h / 2 };
-    const points = from.y === to.y
-      ? [from, to]
-      : [from, { x: from.x + (to.x - from.x) / 2, y: from.y }, { x: from.x + (to.x - from.x) / 2, y: to.y }, to];
+    // Dock on whichever pair of edges the two shapes actually face. A sequence flow
+    // inside one pool runs left to right; a message flow between two pools runs up or
+    // down, and docking it right-to-left would send it out of one pool, across the
+    // page and back in. Compare the gaps rather than assuming.
+    const dx = b.x - (a.x + a.w), dxBack = a.x - (b.x + b.w);
+    const dy = b.y - (a.y + a.h), dyBack = a.y - (b.y + b.h);
+    const vertical = Math.max(dy, dyBack) > Math.max(dx, dxBack);
+
+    let from, to, points;
+    if (vertical) {
+      const downward = dy >= dyBack;
+      from = { x: a.x + a.w / 2, y: downward ? a.y + a.h : a.y };
+      to = { x: b.x + b.w / 2, y: downward ? b.y : b.y + b.h };
+      points = from.x === to.x
+        ? [from, to]
+        : [from, { x: from.x, y: from.y + (to.y - from.y) / 2 }, { x: to.x, y: from.y + (to.y - from.y) / 2 }, to];
+    } else {
+      from = { x: a.x + a.w, y: a.y + a.h / 2 };
+      to = { x: b.x, y: b.y + b.h / 2 };
+      points = from.y === to.y
+        ? [from, to]
+        : [from, { x: from.x + (to.x - from.x) / 2, y: from.y }, { x: from.x + (to.x - from.x) / 2, y: to.y }, to];
+    }
 
     const plane = planeFor(planes, byElement, el);
     if (!plane) continue;

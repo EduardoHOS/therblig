@@ -222,6 +222,58 @@ export function applyPatch({ moddle, definitions }, ops) {
         created.push(id);
         break;
       }
+      case 'move': {
+        // Lane membership is recorded on the LANE, as a list of flowNodeRef, not on the
+        // node. That is why `set {patch:{lane}}` was never going to work and why the
+        // allowlist refuses it: there is no property on the node to write. Moving is its
+        // own operation because it is two edits — one lane loses the reference, another
+        // gains it — and doing only half leaves the node in both or neither.
+        const el = byId.get(op.id);
+        if (!el) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `element "${op.id}" not found`);
+        if (typeof op.lane !== 'string') {
+          throw new TherbligError('THB_UNKNOWN_TYPE', 'move needs a "lane" to move into');
+        }
+        const lane = byId.get(op.lane);
+        if (!lane) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `lane "${op.lane}" not found`);
+        if (lane.$type !== 'bpmn:Lane') {
+          throw new TherbligError('THB_UNKNOWN_TYPE', `"${op.lane}" is a ${lane.$type.replace('bpmn:', '')}, not a lane`);
+        }
+        for (const other of walk(definitions)) {
+          if (other.$type !== 'bpmn:Lane' || !other.flowNodeRef) continue;
+          const i = other.flowNodeRef.indexOf(el);
+          if (i >= 0 && other !== lane) { other.flowNodeRef.splice(i, 1); changed.add(other.id); }
+        }
+        (lane.flowNodeRef ??= []);
+        if (!lane.flowNodeRef.includes(el)) lane.flowNodeRef.push(el);
+        changed.add(lane.id);
+        changed.add(el.id);
+        break;
+      }
+      case 'message': {
+        // Only a message flow may cross a pool boundary, and it lives on the
+        // collaboration rather than inside either process — which is exactly why
+        // `connect` could not be taught to make one by adding a flag. Different parent,
+        // different collection, and no incoming/outgoing bookkeeping: node adjacency
+        // lists hold sequence flows only.
+        const from = byId.get(op.from), to = byId.get(op.to);
+        if (!from) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `source "${op.from}" not found`);
+        if (!to) throw new TherbligError('THB_NOT_FOUND_ELEMENT', `target "${op.to}" not found`);
+        const collab = [...walk(definitions)].find((e) => e.$type === 'bpmn:Collaboration');
+        if (!collab) {
+          throw new TherbligError('THB_UNKNOWN_TYPE',
+            'this file has no collaboration, so it has no pools for a message flow to cross');
+        }
+        const id = op.id && !byId.has(op.id) ? op.id : mintId(byId, `Message_${op.from}_${op.to}`);
+        const mf = moddle.create('bpmn:MessageFlow', {
+          id, sourceRef: from, targetRef: to, ...(op.name ? { name: op.name } : {}),
+        });
+        mf.$parent = collab;
+        (collab.messageFlows ??= []).push(mf);
+        byId.set(id, mf);
+        changed.add(id);
+        created.push(id);
+        break;
+      }
       default:
         throw new TherbligError('THB_UNKNOWN_TYPE', `unknown op "${op.op}"`);
     }

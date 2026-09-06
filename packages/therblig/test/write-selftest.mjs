@@ -126,6 +126,80 @@ await check('a file with a non-empty collapsed sub-process is editable', async (
   assert(r.written, `refused an ordinary edit: ${r.diagnostics.map((d) => message(d)).join(' | ')}`);
 });
 
+console.log('\nthe two operations that needed their own verbs');
+
+await check('move rewrites lane membership on the lane, and only one lane', async () => {
+  const f = sandbox('miwg/C.1.0.bpmn');
+  const { rev } = await readWithRev(f);
+  const m = await import('../src/model.mjs');
+  const irm = await import('../src/ir.mjs');
+  const ir = irm.project((await m.parse(readFileSync(f, 'utf8'))).definitions);
+  const node = ir.nodes.find((n) => n.lane && /task|user|service/.test(n.type));
+  const target = ir.lanes.find((l) => l.id !== node.lane);
+  assert(node && target, 'fixture has no laned task and second lane');
+
+  const r = await applyToFile(f, [{ op: 'move', id: node.id, lane: target.id }], { baseRev: rev });
+  assert(r.written, `refused: ${r.diagnostics.map((d) => message(d)).join(' | ')}`);
+
+  const after = irm.project((await m.parse(readFileSync(f, 'utf8'))).definitions);
+  assert(after.nodes.find((n) => n.id === node.id).lane === target.id, 'the node did not move');
+  // Listed in exactly one lane: doing half the edit leaves it in both or neither, which
+  // is the same class of bug as writing one side of a sequence flow.
+  let listed = 0;
+  for (const el of m.walk((await m.parse(readFileSync(f, 'utf8'))).definitions)) {
+    if (el.$type === 'bpmn:Lane' && (el.flowNodeRef || []).some((x) => x.id === node.id)) listed++;
+  }
+  assert(listed === 1, `listed in ${listed} lanes`);
+});
+
+await check('message creates a flow that may cross a pool boundary', async () => {
+  const f = sandbox('miwg/C.2.0.bpmn');
+  const { rev } = await readWithRev(f);
+  const m = await import('../src/model.mjs');
+  const irm = await import('../src/ir.mjs');
+  const ir = irm.project((await m.parse(readFileSync(f, 'utf8'))).definitions);
+  const byProc = new Map();
+  for (const n of ir.nodes) if (/task|user|service|manual|send|receive/.test(n.type) && !byProc.has(n.in)) byProc.set(n.in, n);
+  const [a, b] = [...byProc.values()];
+
+  const r = await applyToFile(f, [{ op: 'message', from: a.id, to: b.id, name: 'On its way', id: 'MF_Ok' }], { baseRev: rev });
+  assert(r.written, `refused a legal message flow: ${r.diagnostics.map((d) => message(d)).join(' | ')}`);
+  const after = readFileSync(f, 'utf8');
+  assert((await parses(after)).ok && (await xsdValid(after)).ok, 'result is not valid');
+  assert(irm.project((await m.parse(after)).definitions).messageFlows.some((x) => x.id === 'MF_Ok'), 'not in the projection');
+});
+
+await check('a message flow that stays inside one pool is refused', async () => {
+  const f = sandbox('miwg/C.2.0.bpmn');
+  const before = readFileSync(f);
+  const { rev } = await readWithRev(f);
+  const m = await import('../src/model.mjs');
+  const irm = await import('../src/ir.mjs');
+  const ir = irm.project((await m.parse(before.toString())).definitions);
+  const grouped = {};
+  for (const n of ir.nodes) if (/task|user|service|manual|send|receive/.test(n.type) && n.in) (grouped[n.in] ??= []).push(n);
+  const pair = Object.values(grouped).find((g) => g.length >= 2);
+  assert(pair, 'fixture has no two tasks in one process');
+
+  const r = await applyToFile(f, [{ op: 'message', from: pair[0].id, to: pair[1].id, id: 'MF_Bad' }], { baseRev: rev });
+  assert(r.refused, 'wrote a message flow that does not cross a pool');
+  assert(r.diagnostics.some((d) => d.code === 'INTRA_POOL_MESSAGE_FLOW'), r.diagnostics.map((d) => d.code).join(', '));
+  assert(Buffer.compare(before, readFileSync(f)) === 0, 'the file changed despite the refusal');
+});
+
+await check('move refuses a target that is not a lane', async () => {
+  const f = sandbox('miwg/C.1.0.bpmn');
+  const { rev } = await readWithRev(f);
+  const m = await import('../src/model.mjs');
+  const irm = await import('../src/ir.mjs');
+  const ir = irm.project((await m.parse(readFileSync(f, 'utf8'))).definitions);
+  const node = ir.nodes.find((n) => /task|user|service/.test(n.type));
+  let code = null;
+  try { await applyToFile(f, [{ op: 'move', id: node.id, lane: ir.nodes[0].id }], { baseRev: rev }); }
+  catch (e) { code = e.code; }
+  assert(code === 'THB_UNKNOWN_TYPE', String(code));
+});
+
 console.log('\ninterrupting a write');
 
 await check('SIGKILL mid-write leaves the old file or the new one, never a fragment', async () => {

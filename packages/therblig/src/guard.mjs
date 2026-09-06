@@ -33,7 +33,7 @@ export function expectedFromOps(ops, beforeTree, created = []) {
   // one fixture from 57 to 7, which is a guard that no longer guards.
   const containers = new Set();
   for (const op of ops) {
-    for (const k of ['id', 'from', 'to', 'on', 'after']) {
+    for (const k of ['id', 'from', 'to', 'on', 'after', 'lane']) {
       if (typeof op[k] === 'string') named.add(op[k]);
     }
     if (typeof op.in === 'string') { named.add(op.in); containers.add(op.in); }

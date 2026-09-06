@@ -63,6 +63,25 @@ failures is worth nothing. Details and repro steps: [docs/FINDINGS.md](docs/FIND
 claude mcp add therblig -- npx -y therblig-mcp --root .
 ```
 
+Or as a plugin, which brings a skill along with the server:
+
+```
+/plugin marketplace add EduardoHOS/therblig-plugin
+/plugin install therblig@therblig
+```
+
+<details>
+<summary>Cursor, VS Code, and anything else that speaks MCP</summary>
+
+```json
+{ "mcpServers": { "therblig": { "command": "npx", "args": ["-y", "therblig-mcp", "--root", "."] } } }
+```
+
+VS Code uses `servers` as the top-level key rather than `mcpServers`; everything else is
+the same. The server is stdio only and makes no network calls.
+
+</details>
+
 Five tools:
 
 | tool | what it gives the model |
@@ -72,6 +91,11 @@ Five tools:
 | `bpmn_lint` | what is wrong, the BPMN rule it breaks, and the fix |
 | `bpmn_verify` | does it parse and match the five OMG schemas |
 | `bpmn_patch` | edits a file, and refuses if the edit changed anything you did not ask for |
+
+The operations are `add`, `set`, `del`, `connect`, `move` and `message`. `move` and
+`message` are separate verbs rather than flags because the structures differ: lane
+membership lives on the lane, and a message flow belongs to the collaboration rather than
+to either process ([ADR-011](docs/DECISIONS.md)).
 
 `bpmn_patch` previews by default. To write, pass `dry_run: false` and the `base_rev` you
 were given when you read the file — so an edit built against bytes that have since
@@ -170,7 +194,7 @@ a different measurement quietly.
 
 ```bash
 npm ci
-npm test            # 115 assertions across seven suites
+npm test            # 120 assertions across seven suites
 npm run oracle      # lint the whole corpus
 npm run verify:corpus  # every canonical edit on every file, every invariant
 npm run probe       # the one probe that FAILS on purpose, see below
@@ -199,7 +223,8 @@ Evidence first, then ship, then study.
    the file byte-identical when it refuses.
 5. ~~**The preservation receipt**~~ — done. An offline-checkable proof that nothing
    outside an edit moved, plus a headless SVG a reviewer can look at.
-6. **Distribution** — next: publish, the two missing patch operations, a plugin.
+6. **Distribution** — the two missing operations are in and the plugin is scaffolded.
+   Publishing to npm is the remaining step, and it is deliberately a human decision.
 
 A three-arm LLM comparison was planned first and was deliberately reordered: at n=20 the
 pre-registered analysis has 0.21 power against the effect it was built to detect, so it

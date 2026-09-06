@@ -330,3 +330,31 @@ Desktop, Cursor and VS Code. Measured in M0; kill criterion 2 drops to
 `@modelcontextprotocol/sdk@1.30.0` for the transport only if two or more fail. Nothing
 above depends on that outcome — it rests on the spec's statelessness, not on the SDK.
 
+
+## ADR-011 — `move` and `message` are their own operations, not flags
+
+**2026-09-06.** The four ops were "deliberately four: add, set, del, connect", and the
+first instinct on needing lane moves and message flows was to add a `lane` key to `set`
+and a `--message` flag to `connect`. Both were wrong, for the same structural reason.
+
+**Lane membership is not a property of the node.** It is a list of `flowNodeRef` on the
+`bpmn:Lane`. There is nothing on the node to set, which is why `set {patch:{lane}}` fell
+through the old open assignment and wrote a junk property that serialized silently
+(F12/D1's sibling). Moving is two edits — one lane loses the reference, another gains it
+— and doing half leaves the node listed twice or not at all.
+
+**A message flow is not a sequence flow with a flag.** It has a different parent (the
+`bpmn:Collaboration`, not either process), lives in a different collection
+(`messageFlows`), and takes no part in node adjacency, because `<incoming>`/`<outgoing>`
+hold sequence flows only. Three differences, none of which a boolean expresses.
+
+Both would have been expressible as options, and both would have hidden a structural
+difference behind a parameter — which is the shape of every bug in F12.
+
+**Rests on:** the corpus sweep, which now runs eight canonical edit kinds over 23 files
+(139/139). `move` reaches 9 files and `message` 6; the per-kind counts are printed so a
+category silently reaching zero files is visible rather than assumed.
+
+**Reverses if:** a third construct turns out to need the same treatment and the op list
+starts to read as a catalogue rather than a vocabulary. The line to hold is that an
+operation exists when the underlying structure differs, not when the user's phrasing does.

@@ -34,5 +34,6 @@
   },
   "bin": {
     "therblig": "./src/cli/bin.mjs"
-  }
+  },
+  "mcpName": "io.github.eduardohos/therblig"
 }

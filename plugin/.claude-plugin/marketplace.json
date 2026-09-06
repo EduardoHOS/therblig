@@ -1,0 +1,11 @@
+{
+  "name": "therblig",
+  "owner": { "name": "EduardoHOS" },
+  "plugins": [
+    {
+      "name": "therblig",
+      "source": "./plugins/therblig",
+      "description": "Read, explain, lint and edit the .bpmn files already in your repo, without wrecking the diagram."
+    }
+  ]
+}

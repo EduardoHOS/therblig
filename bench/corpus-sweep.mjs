@@ -8,10 +8,11 @@
 //   parses · XSD-valid · no NEW error diagnostic · distinctDeltas <= 1 ·
 //   labelsDetached 0 · no orphaned DI · the receipt re-derives
 //
-// Two of the plan's six canonical ops are missing on purpose: there is no operation
-// that creates a bpmn:MessageFlow, and lane membership lives in lane.flowNodeRef which
-// the `set` allowlist forbids. Both arrive with M5, and this file will grow two columns
-// rather than quietly skipping them.
+// All eight canonical edits now, including the two that needed new operations: lane
+// membership lives on the lane rather than the node, and only a message flow may cross
+// a pool boundary. A file only gets the edits its own contents can express — a corpus
+// of nine exporters does not contain the same shapes twice — and the per-kind counts
+// below say which ran, so a category quietly reaching zero files is visible.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { parse, serialize } from '../packages/therblig/src/model.mjs';
@@ -93,6 +94,22 @@ function plan(ir) {
     && flows.filter((f) => f.to === n.id).length === 1
     && flows.filter((f) => f.from === n.id).length === 1);
   if (victim) out.push({ kind: 'delete', ops: [{ op: 'del', id: victim.id }] });
+
+  // move a node to another lane — only where the file has two lanes and a node in one
+  const laned = (ir.nodes ?? []).find((n) => n.lane && TASKY.test(n.type));
+  const otherLane = laned && (ir.lanes ?? []).find((l) => l.id !== laned.lane);
+  if (laned && otherLane) out.push({ kind: 'move', ops: [{ op: 'move', id: laned.id, lane: otherLane.id }] });
+
+  // a message flow between two pools — only where two processes both hold work
+  const byProcess = new Map();
+  for (const n of ir.nodes ?? []) {
+    if (!TASKY.test(n.type) || !n.in) continue;
+    if (!byProcess.has(n.in)) byProcess.set(n.in, n);
+  }
+  if ((ir.pools ?? []).length >= 2 && byProcess.size >= 2) {
+    const [p, q] = [...byProcess.values()];
+    out.push({ kind: 'message', ops: [{ op: 'message', from: p.id, to: q.id, name: 'Sweep message', id: 'SweepMessage' }] });
+  }
 
   return out;
 }
