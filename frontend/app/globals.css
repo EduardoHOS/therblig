@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/*
+ * One palette, shared with the SVG the core draws, so a diagram looks the same in the CLI's file
+ * and in this page. `@theme` is what Tailwind reads to generate `bg-paper`, `text-ink-3` and the
+ * rest, and it holds the light values because light is what the Studio opens in — a diagram is
+ * read the way it is printed, and the reader chooses otherwise if they want to. The dark theme
+ * redefines the same custom properties, which every generated utility already reads through
+ * `var()`. It is stamped on the root element by the reader's choice, never by their operating
+ * system: a document that changes colour on its own is a surprise, not a preference.
+ */
+@theme {
+  --color-paper: #eef1f0;
+  --color-surface: #fdfefd;
+  --color-sunk: #e3e8e6;
+  --color-ink: #101618;
+  --color-ink-2: #475355;
+  --color-ink-3: #7a8887;
+  --color-rule: #d5dcda;
+  --color-plot: #0e6b60;
+  --color-ok: #2c7449;
+  --color-warn: #7e6417;
+  --color-bad: #a63a22;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-paper: #0b0e10;
+  --color-surface: #12181a;
+  --color-sunk: #1c2426;
+  --color-ink: #e5edea;
+  --color-ink-2: #a0aeab;
+  --color-ink-3: #778785;
+  --color-rule: #2b3538;
+  --color-plot: #4fcfba;
+  --color-ok: #5fbe86;
+  --color-warn: #d3b155;
+  --color-bad: #e5825f;
+}
+
+/* The four structural colours the drawn SVG reads. Its own fallbacks are the light palette, so a
+   `.svg` the CLI wrote and someone opened on its own still looks right. */
+:root {
+  --treadle-ground: var(--color-paper);
+  --treadle-surface: var(--color-surface);
+  --treadle-ink: var(--color-ink);
+  --treadle-line: var(--color-ink-2);
+  color-scheme: light;
+}
+
+html, body { height: 100%; }
+body { background: var(--color-paper); color: var(--color-ink); }
+
+/*
+ * The drawn SVG is server-rendered markup, so its interactive states are CSS on the ids it already
+ * carries. A stroke set here beats the presentation attribute the renderer wrote, which is how a
+ * selection reads the same in either theme instead of a filter that only works on one ground.
+ */
+.canvas-sheet svg { display: block; }
+.canvas-sheet [data-id] { cursor: pointer; }
+.canvas-sheet [data-id]:hover { opacity: 0.65; }
+.canvas-sheet .is-selected {
+  stroke: var(--color-plot);
+  stroke-width: 2.5;
+  stroke-dasharray: 5 3;
+}
+
+/* Selecting an element marks its outline and its name. Text takes the mark as a fill: a stroked
+   label at 10px is a smear. */
+.canvas-sheet text.is-selected {
+  stroke: none;
+  fill: var(--color-plot);
+  font-weight: 600;
+}
+
+/* A canvas is a surface you work on, not a page you read: a faint grid says the diagram sits in
+   space that pans and zooms, and gives the eye something to measure the movement against. */
+.canvas-ground {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--color-rule) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.zoom-key {
+  padding-inline: 0.625rem;
+  font-size: 13px;
+  line-height: 1.85rem;
+}
+.zoom-key:hover {
+  background: var(--color-sunk);
+  color: var(--color-ink);
+}
+
+kbd {
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: var(--color-sunk);
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-plot) 24%, transparent);
+}
+
+/* A focus ring the whole product shares, rather than the browser's, which changes per platform. */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-plot);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

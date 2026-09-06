@@ -32,6 +32,11 @@ pnpm-debug.log*
 lerna-debug.log*
 .npm/
 coverage/
+
+# Next.js build output for the Studio; the app is source, the build is not.
+.next/
+.next-build/
+next-env.d.ts
 .nyc_output/
 
 # Environment and secrets. `.env` holds a real API key: `npm run bench:agent` is the only

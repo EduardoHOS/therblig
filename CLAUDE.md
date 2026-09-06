@@ -117,6 +117,11 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 Use the lockfile and the repository scripts:
 
 ```sh
+make            # what every target does
+make dev        # the Studio on PORT (3000), over WORKSPACE (the repository)
+make check      # the gate
+make install    # npm ci for both workspaces
+
 npm ci
 npm run lint
 npm test
@@ -128,8 +133,13 @@ npx treadle explain bench/corpus/miwg/C.9.0.bpmn
 npx treadle apply file.bpmn --op timeout --args '{"on":"X","after":"P3D","to":"Y","name":"Late"}'
 ```
 
-`npm run check` is the local and CI quality gate. Do not call a change complete if this
-command is red or was not run after the final edit.
+`npm run check` — `make check` — is the local and CI quality gate. Do not call a change complete
+if this command is red or was not run after the final edit.
+
+There is no backend daemon. The core is a library, the CLI is a command, and the MCP server speaks
+stdio to the client that spawned it, so `make dev` runs the Studio and the Studio imports the core
+in process. Because Next loads the core as an external package, Node caches it: `scripts/dev.mjs`
+watches `backend/` and restarts the dev server, or an edit there stays invisible to the page.
 
 ## Dependencies and security
 

@@ -14,7 +14,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "lint": "oxlint --deny-warnings --import-plugin --node-plugin backend bench",
+    "lint": "oxlint --deny-warnings --import-plugin --node-plugin backend bench scripts",
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=backend/core/**/*.mjs --test-coverage-include=backend/io/**/*.mjs --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100",
     "corpus": "node bench/scorer/baseline.mjs bench/corpus",
@@ -77,5 +77,8 @@
     "third_party/omg/",
     "types/",
     "NOTICE"
+  ],
+  "workspaces": [
+    "frontend"
   ]
 }
