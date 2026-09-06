@@ -53,6 +53,16 @@ await check('it states the denominator, not just the numerator', () => {
   assert(/of \d+ protected objects/.test(receipt.headline), receipt.headline);
 });
 
+await check('the denominator is most of the file, not a handful', () => {
+  // A guard is only as strong as what it still calls protected. When the expected set
+  // was allowed to follow `in` — the containing bpmn:Process — the descendant walk put
+  // the whole file in scope and this count fell from 55 to 7. Everything still passed,
+  // because a guard that protects nothing never complains. Hence a floor.
+  const p = receipt.diff.protectedObjects;
+  assert(declared.length < 15, `${declared.length} ids declared for a one-node insert — the expected set is too broad`);
+  assert(p.total > 40, `only ${p.total} protected objects on a 26-shape file; the guard has been widened until it guards nothing`);
+});
+
 await check('it measures what F9 could not see', () => {
   const L = receipt.diff.layout;
   assert(typeof L.labelsDetached === 'number', 'no labelsDetached');

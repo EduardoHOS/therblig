@@ -26,10 +26,17 @@ import { blocking } from './oracle/compare.mjs';
  */
 export function expectedFromOps(ops, beforeTree, created = []) {
   const named = new Set(created);
+  // `in` names the CONTAINER an element goes into. It belongs in the expected set —
+  // its flowElements list legitimately grows — but it must never seed the descendant
+  // walk below, because the container is usually the whole bpmn:Process. Letting it
+  // through put every element in the file in scope and dropped the protected count on
+  // one fixture from 57 to 7, which is a guard that no longer guards.
+  const containers = new Set();
   for (const op of ops) {
-    for (const k of ['id', 'in', 'from', 'to', 'on', 'after']) {
+    for (const k of ['id', 'from', 'to', 'on', 'after']) {
       if (typeof op[k] === 'string') named.add(op[k]);
     }
+    if (typeof op.in === 'string') { named.add(op.in); containers.add(op.in); }
     if (Array.isArray(op.between)) for (const v of op.between) if (typeof v === 'string') named.add(v);
   }
 
@@ -55,7 +62,7 @@ export function expectedFromOps(ops, beforeTree, created = []) {
   // bpmn:PotentialOwner (7 files), and then took the bpmn:TimerEventDefinition inside
   // the boundary event that was itself only in scope by attachment (3 more). All of it
   // is correct cascade behaviour, and all of it was being reported as unintended.
-  const inScope = new Set([...named, ...incident]);
+  const inScope = new Set([...named, ...incident].filter((id) => !containers.has(id)));
   const descendants = new Set();
   for (const el of walk(beforeTree)) {
     if (!el.id || !inScope.has(el.id)) continue;
