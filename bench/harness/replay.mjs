@@ -31,6 +31,15 @@ async function cells() {
 async function score(cell) {
   const task = byId.get(cell.task);
   if (!task) return { ok: false, why: [`unknown task ${cell.task}`] };
+
+  const used = new Set((cell.calls ?? []).map((call) => call.tool));
+  if (cell.armTools && !cell.armTools.some((tool) => used.has(tool))) {
+    return {
+      ok: false,
+      harness: true,
+      why: [`the agent used none of its arm's tools (${[...used].join(', ') || 'no tools at all'})`],
+    };
+  }
   if (!cell.xml) return { ok: false, why: [cell.crash ? `crashed: ${cell.crash}` : 'produced no file'] };
 
   const beforeXml = await readFile(join(CORPUS, task.file), 'utf8');
@@ -102,13 +111,21 @@ process.stdout.write(
   pad('$', 6) + arms.map((arm) => pad(`$${totals.get(arm).cost.toFixed(2)}`, 12)).join('') + '\n',
 );
 
+const broken = results.filter((result) => result.score.harness);
+if (broken.length) {
+  process.stdout.write(
+    `\n${broken.length} of ${results.length} cells never reached their own tools — those measured the harness, not the arm.\n`,
+  );
+}
+
 const failures = results.filter((result) => !result.score.ok);
 if (failures.length) {
   process.stdout.write('\nwhy each failing cell failed\n');
   for (const failure of failures.slice(0, 40)) {
     const reason = [...(failure.score.gates ?? []).map((gate) => `gate:${gate}`), ...(failure.score.why ?? [])];
     const line = reason.join('; ').replace(/\s+/g, ' ').trim();
-    process.stdout.write(`  ${failure.task} ${pad(failure.arm, 9)}#${failure.run}  ${line.slice(0, 96)}\n`);
+    const mark = failure.score.harness ? 'HARNESS ' : '';
+    process.stdout.write(`  ${failure.task} ${pad(failure.arm, 9)}#${failure.run}  ${mark}${line.slice(0, 96)}\n`);
   }
 }
 process.stdout.write('\n');

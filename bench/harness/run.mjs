@@ -31,6 +31,7 @@ function fail(message) {
 
 async function runCell({ task, arm, index, model, effort, budget, stamp }) {
   const cwd = await mkdtemp(join(tmpdir(), 'treadle-cell-'));
+  const config = await mkdtemp(join(tmpdir(), 'treadle-config-'));
   const file = basename(task.file);
   await cp(join(CORPUS, task.file), join(cwd, file));
 
@@ -57,9 +58,11 @@ async function runCell({ task, arm, index, model, effort, budget, stamp }) {
         effort,
         maxTurns: 40,
         maxBudgetUsd: budget,
-        // Nothing from the developer's own machine may leak into a cell: no CLAUDE.md, no
-        // project skills, no settings. Every arm starts from the same empty context.
+        // Intended to keep the developer's machine out of the cell. Necessary but NOT sufficient
+        // on SDK 0.3.263: an init message still reports 16 skills, 48 slash commands and 5 agents
+        // from the host. See F14 — no number from this harness is trustworthy until that is fixed.
         settingSources: [],
+        env: { ...process.env, CLAUDE_CONFIG_DIR: config },
         systemPrompt: { type: 'preset', preset: 'claude_code', append: BRIEF },
         mcpServers: { treadle: treadleServer({ root: cwd, autonomous: new Set(['safe', 'additive', 'routing', 'destructive']) }) },
         ...arms[arm],
@@ -91,6 +94,9 @@ async function runCell({ task, arm, index, model, effort, budget, stamp }) {
     turns: result?.num_turns ?? null,
     session: result?.session_id ?? null,
     calls,
+    // What the arm was actually given, so a cell where the agent never touched its own tool
+    // surface can be told apart from one where it tried and got the edit wrong.
+    armTools: arms[arm].allowedTools,
     xml: produced,
   };
 

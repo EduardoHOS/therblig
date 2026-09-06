@@ -63,8 +63,15 @@ export function treadleServer({ root, autonomous }) {
           return { content: [{ type: 'text', text }], isError: true };
         }
       },
+      // Per-tool, because the server-level flag is not propagated onto the config
+      // createSdkMcpServer returns. Without this the tools sit behind tool search and an agent
+      // that does not know they exist never finds them.
+      { alwaysLoad: true },
     ),
   );
 
-  return createSdkMcpServer({ name: 'treadle', version: '0.0.0', tools });
+  return {
+    ...createSdkMcpServer({ name: 'treadle', version: '0.0.0', tools }),
+    alwaysLoad: true,
+  };
 }

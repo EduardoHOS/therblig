@@ -321,3 +321,45 @@ treadle apply p.bpmn --op timeout --args '{"on":"…","after":"P3D","to":"…","
 
 The one style delta the ops do not fix is `no-implicit-split` on a message flow's source (F11),
 which is bpmnlint counting something BPMN does not branch on.
+
+## F14 — the first paid bench run measured the harness, not the arms
+
+Three cells were run against the real API on 2026-09-06 (T04, one run each of `raw`, `raw_ir`,
+`treadle`; **$2.40 total including probes**). None of them produced a usable measurement, and the
+scoreboard they would have produced — `raw 1/1, raw_ir 1/1, treadle 0/1` — is false.
+
+### Defect 1: the structured arm never received its tools
+
+`mcp_servers` reports `[{"name":"treadle","status":"connected"}]`, and the agent's `tools` list
+contains no `mcp__treadle__*` entry at all. Arm C spent its whole session calling `ToolSearch`
+looking for `Read`, `Edit` and `Bash` — tools it had been denied — and then stopped.
+
+The SDK defers MCP tools behind tool search by default. Three documented ways to opt out were
+tried on `@anthropic-ai/claude-agent-sdk@0.3.263` and **none of them worked**:
+
+| attempt | result |
+|---|---|
+| `createSdkMcpServer({ …, alwaysLoad: true })` | not propagated — the returned config carries only `{ type, name, instance }` |
+| `alwaysLoad: true` on the config passed to `mcpServers` | no change |
+| `tool(…, …, …, …, { alwaysLoad: true })` per tool | no change |
+
+### Defect 2: the developer's machine leaks into every cell
+
+With `settingSources: []` **and** a fresh `CLAUDE_CONFIG_DIR`, the session's `init` message still
+reports **16 skills, 48 slash commands and 5 agents** belonging to the host. An arm running with
+the maintainer's own skills available is not the arm the table claims to describe, and the result
+would not reproduce on another machine. This applies to `raw` and `raw_ir` too — their apparent
+passes are not evidence either.
+
+### What the harness now does about it
+
+A cell that used none of its own arm's tools is scored as `HARNESS`, not as a product failure —
+the guard that caught defect 1 rather than turning it into a false finding. `replay.mjs` prints
+how many cells fell into that bucket, and the invalid runs were deleted rather than committed.
+
+**Nothing may be claimed about the arms until both defects are closed.** Reproduce:
+
+```sh
+npm run bench:agent -- --tasks T04 --arms treadle --runs 1 --yes
+npm run bench:replay
+```

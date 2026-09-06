@@ -34,7 +34,8 @@ lerna-debug.log*
 coverage/
 .nyc_output/
 
-# Environment and secrets
+# Environment and secrets. `.env` holds a real API key: `npm run bench:agent` is the only
+# thing that reads it, and nothing else in this repository needs it.
 .env
 .env.*
 !.env.example
@@ -55,6 +56,7 @@ desktop.ini
 # AI assistant local state — never published
 .claude/
 .cursor/
+.serena/
 .aider*
 CLAUDE.local.md
 
