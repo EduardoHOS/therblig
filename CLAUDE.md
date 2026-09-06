@@ -1,11 +1,11 @@
 # CLAUDE.md
 
-Guidance for working in Treadle. These rules describe how the repository is built and
+Guidance for working in therblig. These rules describe how the repository is built and
 reviewed; they are requirements, not suggestions.
 
 ## What this is
 
-Treadle is an offline, engine-neutral BPMN 2.0 editing core. It is intended to let a CLI,
+therblig is an offline, engine-neutral BPMN 2.0 editing core. It is intended to let a CLI,
 an MCP server, and other callers read, explain, lint, and safely edit existing `.bpmn`
 files without regenerating the whole diagram.
 

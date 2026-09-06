@@ -393,7 +393,9 @@ before it existed and threw on a real file, and the guard's expected set was not
 transitive through attachment, so deleting a task reported the flow of its own boundary
 event as an unintended change.
 
-**Unresolved, and not a decision for a merge commit:** this line of work renamed the
-project to therblig; `CLAUDE.md`, the package metadata and the GitHub remote still say
-Treadle. Two people need to agree on that, and the npm names are the part that cannot be
-taken back.
+**Resolved 2026-09-06.** The repository was renamed to `EduardoHOS/therblig` by its
+owner, and `CLAUDE.md`, the package metadata and the remote now follow. The dated design
+note under `docs/superpowers/specs/` keeps the old name, because it records what was
+decided on 2026-09-03 and rewriting it would make the record less true rather than more.
+Nicollas has been working under the previous name and should be told rather than left to
+discover it from a diff.

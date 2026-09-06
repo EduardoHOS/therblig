@@ -1,15 +1,15 @@
 {
-  "name": "treadle-bench",
+  "name": "therblig-bench",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Benchmark harness for Treadle: does a structured patch API make an LLM more correct at editing BPMN than editing the XML directly?",
+  "description": "Benchmark harness for therblig: does a structured patch API make an LLM more correct at editing BPMN than editing the XML directly?",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/EduardoHOS/treadle#readme",
-  "bugs": "https://github.com/EduardoHOS/treadle/issues",
+  "homepage": "https://github.com/EduardoHOS/therblig#readme",
+  "bugs": "https://github.com/EduardoHOS/therblig/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EduardoHOS/treadle.git"
+    "url": "git+https://github.com/EduardoHOS/therblig.git"
   },
   "engines": {
     "node": ">=22.12"
