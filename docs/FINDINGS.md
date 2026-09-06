@@ -508,3 +508,39 @@ accidents.** F11 was an instrument blind to the damage it graded; F15's first ru
 policy conclusion from an empty sample; this is a check that could only ever pass. The
 response in each case is the same — write the fixture that can fail before trusting the
 result that passes.
+
+## F17 — the write barrier refused three ordinary edits, and only real files showed it
+
+**2026-09-06 · `bench/corpus-sweep.mjs`**
+
+The sweep applies whichever of six canonical edits each file can express — insert,
+rename, boundary event, condition split, sub-process-scoped insert, delete — and holds
+every result to the same invariants: parses, XSD-valid, no newly introduced error, DI
+coverage both directions, `distinctDeltas <= 1`, zero detached labels, and a receipt
+that re-derives from the two versions.
+
+First run: **105 of 124 edits passed.** Every one of the 19 failures was the barrier
+refusing a correct edit, in three classes, none of which the hand-written fixtures had
+reached:
+
+| class | files | what the guard called unintended |
+|---|---|---|
+| undrawn process | B.1.0, B.2.0 | five elements of a process referenced by a call activity that no plane draws — it needs no DI, and `diCoverage` demanded it anyway |
+| element children | 7 files | `bpmn:Documentation` and `bpmn:PotentialOwner` inside a deleted task |
+| incident children | 3 files | a `bpmn:TimerEventDefinition` inside a boundary event that was itself only in scope because it was attached to the deleted task |
+
+All three are the same mistake in different clothes: **the expected set was not
+transitive.** Naming an element puts what is inside it in scope, and so does being
+pulled in by attachment. After the fix, **124 of 124**, worst `distinctDeltas` 1, labels
+detached 0, orphaned DI 0.
+
+The undrawn-process case is the one to keep in mind. It is F16 exactly — a rule that is
+right for the shape of file the corpus mostly contains and wrong for a shape it contains
+twice — and `inspect` had already been taught about it while `diCoverage` had not, so
+the same fact had to be learned in two places. The lint was correct and the barrier that
+gates writing was not, which is the worse way round.
+
+**None of this was reachable from the fixtures.** The guard passed every hand-written
+test both before and after, because the hand-written tests use files whose elements have
+no documentation, no performers and no undrawn siblings. A sweep over nine exporters'
+output found all three in one run.

@@ -92,9 +92,15 @@ export async function applyToFile(absPath, ops, { baseRev = null, dryRun = false
     base_rev: rev,
     created,
     changed,
+    declared: verdict.expected,
     written: false,
     refused: !verdict.ok,
     diagnostics: verdict.diagnostics,
+    // Both versions, so a caller can build a receipt or draw the diff without redoing
+    // the work. On a refusal the after-state is still returned: seeing exactly what was
+    // rejected is more useful than being told it was.
+    before_xml: xml,
+    after_xml: after,
   };
 
   if (!verdict.ok || dryRun) return result;

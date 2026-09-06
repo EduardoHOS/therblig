@@ -86,6 +86,46 @@ The write itself goes to a temp file in the same directory and is renamed over t
 target, so an interrupted edit leaves either the old file or the new one, never a
 fragment. That is tested by actually killing the process mid-write.
 
+## The receipt
+
+```bash
+npx therblig patch orders.bpmn --ops ops.json --write --base-rev a752214b12e7 --receipt
+```
+
+```
+orders.bpmn  a752214b12e7
+  +2 · 0 of 57 protected objects changed, UCR 0%
+  1 of 26 shapes moved, 1 distinct delta, 0 labels detached.
+  wrote orders.receipt.json
+  wrote orders.diff.svg
+
+Written. a752214b12e7 → 87001c4d4939.
+```
+
+The receipt is the preservation claim written down so somebody else can check it —
+offline, with no key and no network, against the two files it describes:
+
+```bash
+npx therblig verify --receipt orders.receipt.json orders.before.bpmn orders.bpmn
+```
+
+```
+Receipt holds. 11 claims re-derived from the two files.
+```
+
+It is re-derivable rather than signed on purpose. A signature would prove therblig wrote
+the receipt; re-derivation proves the receipt is **true**, which is the half that matters
+and the half you can check without trusting us. Change one number in it and verification
+names the number.
+
+The drawing beside it is SVG rendered straight from the DI coordinates already in the
+file — no bpmn-js, no DOM, no headless browser, so ADR-009 stays intact. Added elements
+are drawn in ink, shapes that moved leave a dashed ghost where they were, and everything
+the edit did not touch recedes, so the eye goes to the change.
+
+Honest limit: it emits SVG, and vision models do not read SVG. This is an artifact for a
+pull request and a human reviewer, not a loop that lets an agent look at its own work.
+
 Or from a terminal:
 
 ```bash
@@ -130,8 +170,9 @@ a different measurement quietly.
 
 ```bash
 npm ci
-npm test            # 99 assertions across six suites
+npm test            # 115 assertions across seven suites
 npm run oracle      # lint the whole corpus
+npm run verify:corpus  # every canonical edit on every file, every invariant
 npm run probe       # the one probe that FAILS on purpose, see below
 npm run licence-guard
 npm run pack-audit  # what would actually ship
@@ -156,8 +197,9 @@ Evidence first, then ship, then study.
 3. ~~**`npx -y therblig-mcp`**~~ — done. Read, explain, lint, verify, preview.
 4. ~~**Guarded writes**~~ — done. base_rev, an atomic rename, and a barrier that leaves
    the file byte-identical when it refuses.
-5. **The preservation receipt** — next: an offline-checkable proof that nothing outside
-   an edit moved, plus a headless SVG a reviewer can look at.
+5. ~~**The preservation receipt**~~ — done. An offline-checkable proof that nothing
+   outside an edit moved, plus a headless SVG a reviewer can look at.
+6. **Distribution** — next: publish, the two missing patch operations, a plugin.
 
 A three-arm LLM comparison was planned first and was deliberately reordered: at n=20 the
 pre-registered analysis has 0.21 power against the effect it was built to detect, so it

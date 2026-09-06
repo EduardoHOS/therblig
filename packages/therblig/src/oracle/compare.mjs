@@ -8,7 +8,10 @@
 // file's pre-existing sins, which is the exact mistake ADR-006 identified for lint
 // presets. So a violation that was already there is not this edit's fault. Only newly
 // introduced ones are reported.
-import { parse, walk } from '../model.mjs';
+import { parse } from '../model.mjs';
+// One implementation of each, in diff.mjs — the receipt and the guard must not be able
+// to disagree about what changed.
+import { fingerprint, geometry } from '../diff.mjs';
 import { inspectTree } from './inspect.mjs';
 import { diag } from './invariants.mjs';
 
@@ -16,53 +19,6 @@ import { diag } from './invariants.mjs';
 // 150.99999999999994. Round before comparing — the same trap that made probe-labels
 // accuse A.1.0 of a detached label it had correctly moved.
 const r2 = (n) => Math.round(n * 100) / 100;
-
-/**
- * A per-element structural fingerprint.
- *
- * Deliberately richer than gates.mjs::fingerprint, which records only
- * {id, type, name, src, tgt, host, default} and is therefore blind to a changed
- * condition expression, a mangled vendor extension, a node moved to another lane, and
- * a node reparented into a different container. All four are edits a model might make
- * by accident, and all four pass gate 4 today.
- */
-function fingerprint(definitions) {
-  const lanes = new Map();
-  for (const el of walk(definitions)) {
-    if (el.$type === 'bpmn:Lane') for (const r of el.flowNodeRef || []) if (r?.id) lanes.set(r.id, el.id);
-  }
-  const m = new Map();
-  for (const el of walk(definitions)) {
-    if (!el.id || !el.$type?.startsWith('bpmn:')) continue;
-    const ref = (v) => (typeof v === 'string' ? v : v?.id ?? null);
-    m.set(el.id, {
-      type: el.$type,
-      name: el.name ?? null,
-      src: ref(el.sourceRef),
-      tgt: ref(el.targetRef),
-      host: ref(el.attachedToRef),
-      def: ref(el.default),
-      parent: el.$parent?.id ?? null,
-      lane: lanes.get(el.id) ?? null,
-      cond: el.conditionExpression?.body ?? null,
-      ext: (el.extensionElements?.values || []).map((v) => v.$type).sort().join(','),
-    });
-  }
-  return m;
-}
-
-// Shape and label geometry, keyed by the element the shape belongs to.
-function geometry(definitions) {
-  const m = new Map();
-  for (const el of walk(definitions)) {
-    if (el.$type !== 'bpmndi:BPMNShape' || !el.bpmnElement?.id || !el.bounds) continue;
-    m.set(el.bpmnElement.id, {
-      x: el.bounds.x, y: el.bounds.y,
-      lx: el.label?.bounds?.x ?? null, ly: el.label?.bounds?.y ?? null,
-    });
-  }
-  return m;
-}
 
 const countComments = (xml) => (xml.match(/<!--[\s\S]*?-->/g) || []).length;
 

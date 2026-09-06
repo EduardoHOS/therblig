@@ -95,6 +95,11 @@ jobs:
       # fails `npm test`, so a rule quietly changing meaning cannot pass unnoticed.
       - run: npm run oracle
 
+      # Every canonical edit, on every file, held to every invariant — and every
+      # receipt re-derived from the two versions it describes. No API key, no network:
+      # a stranger with the repo gets the same numbers we publish.
+      - run: npm run verify:corpus
+
   package:
     name: what would ship
     runs-on: ${{ matrix.os }}

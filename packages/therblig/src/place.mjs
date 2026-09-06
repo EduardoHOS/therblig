@@ -270,12 +270,30 @@ export function diCoverage(definitions) {
     return false;
   };
 
+  // A process no plane draws needs no DI at all. B.1.0 and B.2.0 each carry a small
+  // process referenced by a call activity and never rendered; demanding shapes for it
+  // reported five missing elements per file and would have refused every edit to them.
+  // Same shape of bug as the collapsed sub-process above, found by the corpus sweep.
+  const topProcessOf = (el) => {
+    let p = el.$parent, last = null;
+    while (p) { if (p.$type === 'bpmn:Process') last = p; p = p.$parent; }
+    return last;
+  };
+  const drawn = new Set();
+  for (const el of walk(definitions)) {
+    if (!el.id || !byElement.has(el.id)) continue;
+    const proc = topProcessOf(el) ?? (el.$type === 'bpmn:Process' ? el : null);
+    if (proc?.id) drawn.add(proc.id);
+  }
+
   const missing = [];
   let need = 0;
   for (const el of walk(definitions)) {
     if (!el.id || !el.$type) continue;
     if (!NEEDS_SHAPE.test(el.$type) && !NEEDS_EDGE.test(el.$type)) continue;
     if (insideCollapsed(el)) continue;
+    const proc = topProcessOf(el);
+    if (proc && drawn.size && !drawn.has(proc.id)) continue;
     need++;
     if (!byElement.has(el.id)) missing.push({ id: el.id, type: el.$type });
   }

@@ -46,7 +46,23 @@ export function expectedFromOps(ops, beforeTree, created = []) {
       incident.add(el.id);
     }
   }
-  return new Set([...named, ...incident]);
+
+  // Everything INSIDE anything already in scope — named or incident. Naming a task puts
+  // its documentation and its performer in scope; a boundary event that comes along
+  // because it was attached to that task brings its own event definition with it.
+  //
+  // The corpus sweep found both halves. Deleting a task took its bpmn:Documentation and
+  // bpmn:PotentialOwner (7 files), and then took the bpmn:TimerEventDefinition inside
+  // the boundary event that was itself only in scope by attachment (3 more). All of it
+  // is correct cascade behaviour, and all of it was being reported as unintended.
+  const inScope = new Set([...named, ...incident]);
+  const descendants = new Set();
+  for (const el of walk(beforeTree)) {
+    if (!el.id || !inScope.has(el.id)) continue;
+    for (const child of walk(el)) if (child.id && child !== el) descendants.add(child.id);
+  }
+
+  return new Set([...named, ...incident, ...descendants]);
 }
 
 /**

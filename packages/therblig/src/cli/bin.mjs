@@ -2,7 +2,7 @@
 // therblig — read, explain, lint and edit the .bpmn files already in your repo.
 import { readFileSync } from 'node:fs';
 import { TherbligError } from '../errors.mjs';
-import { expand, cmdRead, cmdExplain, cmdLint, cmdVerify, cmdFmt, cmdPatch } from './commands.mjs';
+import { expand, cmdRead, cmdExplain, cmdLint, cmdVerify, cmdFmt, cmdPatch, cmdVerifyReceipt } from './commands.mjs';
 
 const USAGE = `therblig — BPMN 2.0, from the command line.
 
@@ -11,8 +11,9 @@ const USAGE = `therblig — BPMN 2.0, from the command line.
   therblig lint    <file|dir>...     what is wrong, and the rule it breaks
   therblig verify  <file|dir>...     does it parse and match the OMG schemas
   therblig fmt     <file|dir>... --check   what normalising would cost
-  therblig patch   <file> --ops <file.json>            preview the edit
-  therblig patch   <file> --ops <file.json> --write --base-rev <rev>
+  therblig patch   <file> --ops <file.json> [--receipt]     preview the edit
+  therblig patch   <file> --ops <file.json> --write --base-rev <rev> [--receipt]
+  therblig verify  --receipt <r.json> <before> <after>      re-derive a receipt
 
   --json      machine-readable output
   --version   print the version
@@ -47,7 +48,21 @@ async function main() {
     case 'read': return cmdRead(expand(targets), { json });
     case 'explain': return cmdExplain(expand(targets), { json });
     case 'lint': return cmdLint(expand(targets), { json });
-    case 'verify': return cmdVerify(expand(targets), { json });
+    case 'verify': {
+      // `verify --receipt r.json before.bpmn after.bpmn` re-derives a receipt's numbers.
+      // `verify <files>` checks the schemas. Same verb, because both answer "is this
+      // claim about the file true".
+      const receiptPath = valueOf('--receipt');
+      if (receiptPath) {
+        const pair = targets.filter((t) => t !== receiptPath);
+        if (pair.length !== 2) {
+          console.log('therblig verify --receipt r.json before.bpmn after.bpmn');
+          return 1;
+        }
+        return cmdVerifyReceipt(receiptPath, pair[0], pair[1], { json });
+      }
+      return cmdVerify(expand(targets), { json });
+    }
     case 'fmt': return cmdFmt(expand(targets), { json, write: flags.has('--write') });
     case 'patch': {
       const baseRev = valueOf('--base-rev');
@@ -60,7 +75,7 @@ async function main() {
         return 1;
       }
       const ops = JSON.parse(readFileSync(opsPath, 'utf8'));
-      return cmdPatch(file, Array.isArray(ops) ? ops : [ops], { json, write, baseRev });
+      return cmdPatch(file, Array.isArray(ops) ? ops : [ops], { json, write, baseRev, receipt: flags.has('--receipt') });
     }
     default:
       console.log(`Unknown command "${cmd}".\n\n${USAGE}`);

@@ -3,7 +3,7 @@
 //
 // Voice, from the brand brief: say what happened, then what to do. Numbers over
 // adjectives. Sentence case, one period. No exclamation marks.
-import { readdirSync, statSync, existsSync } from 'node:fs';
+import { readdirSync, statSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { parse, serialize } from '../model.mjs';
 import { project } from '../ir.mjs';
@@ -11,6 +11,7 @@ import { explain as explainDoc } from '../explain.mjs';
 import { parses, xsdValid } from '../validate.mjs';
 import { inspect } from '../oracle/inspect.mjs';
 import { applyToFile } from '../write.mjs';
+import { buildReceipt, verifyReceipt, renderDiff } from '../receipt.mjs';
 import { message } from '../oracle/invariants.mjs';
 import { readWithRev } from '../rev.mjs';
 import { TherbligError } from '../errors.mjs';
@@ -139,20 +140,45 @@ export async function cmdFmt(files, { json, write }) {
  * so an edit built against bytes that have since changed on disk is refused rather
  * than silently overwriting whatever a modeller saved in the meantime.
  */
-export async function cmdPatch(file, ops, { json, write, baseRev }) {
+export async function cmdPatch(file, ops, { json, write, baseRev, receipt }) {
   const r = await applyToFile(file, ops, { baseRev, dryRun: !write });
   const blockers = r.diagnostics.filter((d) => d.severity === 'error');
-  const result = {
-    file: rel(file), base_rev: r.base_rev, new_rev: r.new_rev ?? null,
-    written: r.written, refused: r.refused,
-    created: r.created, changed: r.changed,
-    diagnostics: r.diagnostics.map((d) => ({ ...d, message: message(d) })),
-  };
-  if (json) { console.log(JSON.stringify(result, null, 2)); return r.refused ? 1 : 0; }
+  const rec = await buildReceipt(r.before_xml, r.after_xml, {
+    file: rel(file), ops, declared: r.declared, written: r.written, refused: r.refused,
+  });
+
+  // The receipt and the drawing are written next to the file they describe, so a commit
+  // can carry the proof alongside the change it justifies.
+  const artifacts = [];
+  if (receipt) {
+    const stem = file.replace(/\.bpmn$/i, '');
+    writeFileSync(`${stem}.receipt.json`, JSON.stringify(rec, null, 2) + '\n');
+    artifacts.push(`${stem}.receipt.json`);
+    const svg = await renderDiff(r.before_xml, r.after_xml, {
+      title: `${rel(file)} · ${rec.headline.split(' · ')[0]}`,
+      flagged: blockers.flatMap((d) => d.elements),
+    });
+    writeFileSync(`${stem}.diff.svg`, svg);
+    artifacts.push(`${stem}.diff.svg`);
+  }
+
+  if (json) {
+    console.log(JSON.stringify({
+      file: rel(file), base_rev: r.base_rev, new_rev: r.new_rev ?? null,
+      written: r.written, refused: r.refused,
+      created: r.created, changed: r.changed,
+      receipt: rec, artifacts,
+      diagnostics: r.diagnostics.map((d) => ({ ...d, message: message(d) })),
+    }, null, 2));
+    return r.refused ? 1 : 0;
+  }
 
   console.log(`${rel(file)}  ${r.base_rev}`);
-  console.log(`  ${r.created.length} created, ${r.changed.length} changed.`);
+  console.log(`  ${rec.headline}`);
+  const L = rec.diff.layout;
+  console.log(`  ${L.shapesMoved} of ${L.shapesTotal} shapes moved, ${L.distinctDeltas} distinct delta${L.distinctDeltas === 1 ? '' : 's'}, ${L.labelsDetached} labels detached.`);
   for (const d of r.diagnostics) console.log(`  ${d.severity === 'error' ? 'error  ' : 'warning'}  ${message(d)}`);
+  for (const a of artifacts) console.log(`  wrote ${rel(a)}`);
   if (r.refused) {
     console.log(`\nRefused. ${blockers.length} change${blockers.length === 1 ? '' : 's'} outside what you asked for. Nothing was written.`);
   } else if (r.written) {
@@ -161,4 +187,26 @@ export async function cmdPatch(file, ops, { json, write, baseRev }) {
     console.log('\nSafe to apply. Nothing written — add --write and pass --base-rev.');
   }
   return r.refused ? 1 : 0;
+}
+
+/**
+ * verify --receipt — re-derive every number in a receipt from the two files.
+ *
+ * No network, no key, no trust in whoever produced it. A signature would prove therblig
+ * wrote the receipt; re-derivation proves it is true, which is the useful half.
+ */
+export async function cmdVerifyReceipt(receiptPath, beforePath, afterPath, { json }) {
+  const rec = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  const beforeXml = readFileSync(beforePath, 'utf8');
+  const afterXml = readFileSync(afterPath, 'utf8');
+  const v = await verifyReceipt(rec, beforeXml, afterXml);
+  if (json) { console.log(JSON.stringify(v, null, 2)); return v.ok ? 0 : 1; }
+  if (v.ok) {
+    console.log(`Receipt holds. ${v.checked} claims re-derived from the two files.`);
+    console.log(`  ${rec.headline}`);
+  } else {
+    console.log(`Receipt does not match the files. ${v.problems.length} claim${v.problems.length === 1 ? ' disagrees' : 's disagree'}.`);
+    for (const p of v.problems) console.log(`  ${p}`);
+  }
+  return v.ok ? 0 : 1;
 }

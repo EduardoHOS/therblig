@@ -16,7 +16,10 @@
     "./place": "./src/place.mjs",
     "./mcp": "./src/mcp/server.mjs",
     "./oracle": "./src/oracle/inspect.mjs",
-    "./mcp/bin": "./src/mcp/bin.mjs"
+    "./mcp/bin": "./src/mcp/bin.mjs",
+    "./receipt": "./src/receipt.mjs",
+    "./render": "./src/render/svg.mjs",
+    "./diff": "./src/diff.mjs"
   },
   "files": [
     "src",
