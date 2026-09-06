@@ -15,22 +15,23 @@
 // below say which ran, so a category quietly reaching zero files is visible.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { parse, serialize } from '../packages/therblig/src/model.mjs';
-import { project } from '../packages/therblig/src/ir.mjs';
-import { applyPatch } from '../packages/therblig/src/patch.mjs';
-import { placeNew, diCoverage } from '../packages/therblig/src/place.mjs';
-import { parses, xsdValid } from '../packages/therblig/src/validate.mjs';
-import { inspectTree } from '../packages/therblig/src/oracle/inspect.mjs';
-import { message } from '../packages/therblig/src/oracle/invariants.mjs';
-import { expectedFromOps } from '../packages/therblig/src/guard.mjs';
-import { semanticDiffTrees } from '../packages/therblig/src/diff.mjs';
-import { buildReceipt, verifyReceipt } from '../packages/therblig/src/receipt.mjs';
+import { parse, serialize } from '../backend/core/document.mjs';
+import { project } from '../backend/core/projection.mjs';
+import { applyPatch } from '../backend/core/patch.mjs';
+import { placeNew, diCoverage } from '../backend/core/placement.mjs';
+import { parses, xsdValid } from '../backend/io/validate.mjs';
+import { inspectTree } from '../backend/oracle/inspect.mjs';
+import { message } from '../backend/oracle/invariants.mjs';
+import { expectedFromOps } from '../backend/io/guard.mjs';
+import { semanticDiffTrees } from '../backend/oracle/diff.mjs';
+import { buildReceipt, verifyReceipt } from '../backend/receipt.mjs';
 
 const root = process.argv[2] || 'bench/corpus';
 const files = (function walkDir(d, out = []) {
   for (const e of readdirSync(d)) {
     const p = join(d, e);
-    statSync(p).isDirectory() ? walkDir(p, out) : e.endsWith('.bpmn') && out.push(p);
+    if (statSync(p).isDirectory()) walkDir(p, out);
+    else if (e.endsWith('.bpmn')) out.push(p);
   }
   return out;
 })(root).sort();

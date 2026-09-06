@@ -37,9 +37,9 @@ export rewrites only what changed.
 |---|---|
 | One-attribute edit on a normalized 1,710-line file | **−1 +1 lines, 0 shapes moved** |
 | Camunda 8 / Zeebe extension round-trip | **lossless**, 15/15 probes, 0 warnings |
-| MIWG reference models parsed | **22/22**, 0 errors |
-| MIWG reference models XSD-valid | **22/22** |
-| `bpmn-auto-layout@2.0.0-alpha.2` full-file layout | **fails on 9/22** — 8 silent, 1 crash |
+| Corpus parsed — 21 OMG MIWG reference models + 2 hand-authored | **23/23**, 0 errors |
+| Corpus XSD-valid | **23/23** |
+| `bpmn-auto-layout@2.0.0-alpha.2` full-file layout | **fails on 9 of the 21 MIWG models** — 8 silent, 1 crash |
 
 That last row is why this is an editing tool and not a diagram generator.
 
@@ -118,7 +118,7 @@ npx therblig patch orders.bpmn --ops ops.json --write --base-rev a752214b12e7 --
 
 ```
 orders.bpmn  a752214b12e7
-  +2 · 0 of 57 protected objects changed, UCR 0%
+  +2 · 0 of 55 protected objects changed, UCR 0%
   1 of 26 shapes moved, 1 distinct delta, 0 labels detached.
   wrote orders.receipt.json
   wrote orders.diff.svg
@@ -172,9 +172,13 @@ test is case-insensitive on Windows. Those tests were written before the handler
 ## Repo layout
 
 ```
-packages/
-  therblig/     the library, CLI and MCP server
-  therblig-mcp/ the npx entry point
+backend/
+  core/         the functional core — parse, project, patch, place
+  oracle/       validation and semantic diff, no I/O
+  io/           paths, revisions, schema validation, the write barrier
+  render/       BPMN to SVG, no bpmn-js and no DOM
+  cli/ mcp/     the two callers
+  test/         unit · integration · e2e
 bench/          the benchmark harness
   corpus/       BPMN fixtures + profilers (see corpus/PROVENANCE.md)
   scorer/       the five scoring gates
@@ -194,7 +198,8 @@ a different measurement quietly.
 
 ```bash
 npm ci
-npm test            # 120 assertions across seven suites
+npm test            # node --test across backend/test
+npm run check       # lint, 100% core coverage, corpus integrity
 npm run oracle      # lint the whole corpus
 npm run verify:corpus  # every canonical edit on every file, every invariant
 npm run probe       # the one probe that FAILS on purpose, see below

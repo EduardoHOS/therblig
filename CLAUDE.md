@@ -9,14 +9,19 @@ Treadle is an offline, engine-neutral BPMN 2.0 editing core. It is intended to l
 an MCP server, and other callers read, explain, lint, and safely edit existing `.bpmn`
 files without regenerating the whole diagram.
 
-Status matters: the repository is still in its benchmark-first phase. `backend/core/`
-contains the promoted structured-editing mechanism; the CLI, MCP server, and published
-library do not exist yet. Do not describe planned surfaces as shipped.
+Status matters. `backend/core/` contains the promoted structured-editing mechanism. The
+CLI and the MCP server now exist and work; nothing is published to npm. Do not describe
+planned surfaces as shipped — and note that "published library" is still a planned
+surface.
 
 ## Layout
 
 - `backend/core/` — the functional product core. No filesystem, CLI, network, or MCP I/O.
-- `backend/test/` — all tests for the backend core, grouped by test kind.
+- `backend/oracle/` — validation and semantic diff. Pure; reads trees, returns findings.
+- `backend/render/` — BPMN to SVG from DI coordinates. No bpmn-js, no DOM, no browser.
+- `backend/io/` — the filesystem edge: paths, revisions, schema validation, write barrier.
+- `backend/cli/`, `backend/mcp/` — the two callers. Neither holds product logic.
+- `backend/test/` — all tests for the backend, grouped by kind: unit, integration, e2e.
 - `bench/` — corpus, benchmark arms, probes, scorers, and task definitions.
 - `docs/` — empirical findings, architecture decisions, deferred work, and plans.
 - `third_party/` — vendored, provenance-recorded schemas.

@@ -358,3 +358,42 @@ category silently reaching zero files is visible rather than assumed.
 **Reverses if:** a third construct turns out to need the same treatment and the op list
 starts to read as a catalogue rather than a vocabulary. The line to hold is that an
 operation exists when the underlying structure differs, not when the user's phrasing does.
+
+## ADR-012 — `backend/core` is the structure; the second extraction was reconciled onto it
+
+**2026-09-06.** Two efforts extracted the same core from commit `a9ab476`, three days
+apart, without knowing about each other. PR #1 (Nicollas Isaac, merged 2026-09-03)
+promoted it to `backend/core/` with documented module boundaries and a 100%-coverage
+gate. The parallel line of work extracted it to `packages/therblig/src/` on the way to a
+CLI, an MCP server, an oracle and a write barrier.
+
+**Theirs is the structure that survives.** It was merged first, and it is the one with
+its rules written down — `CLAUDE.md` states the module boundaries, forbids a generic
+`src/`, and requires a reproducer for every claim. Deciding by whoever pushes second is
+not a decision.
+
+Adopted from it: the layout, the module names, `node --test` with 100% line, function and
+branch coverage on the core, oxlint with `--deny-warnings`, and — most usefully —
+`adjacency.mjs` as the only module permitted to assign `sourceRef`, `targetRef`,
+`incoming` or `outgoing`, enforced by an architecture test. That is a stronger guarantee
+than the runtime allowlist in the other line, because it holds for code nobody has
+written yet. Both are kept: the test constrains core modules, the allowlist constrains a
+caller's operations, and neither sees what the other does.
+
+Ported onto it, because `backend/core` forked from the same pre-M1 code and carried every
+defect M1 had already found: labels not travelling with their shapes (F11), an unscoped
+make-room shift, one-directional DI coverage with no exemption for collapsed
+sub-processes or undrawn processes (F16, F17), and the open `set` fallthrough (F12).
+Then the layers that had no counterpart — oracle, guard, write barrier, receipt,
+renderer, CLI, MCP server — as siblings of `core/` rather than inside it, since core is
+defined as having no I/O.
+
+The sweep found two more while reconciling: `insertionFor` read `container.flowElements`
+before it existed and threw on a real file, and the guard's expected set was not
+transitive through attachment, so deleting a task reported the flow of its own boundary
+event as an unintended change.
+
+**Unresolved, and not a decision for a merge commit:** this line of work renamed the
+project to therblig; `CLAUDE.md`, the package metadata and the GitHub remote still say
+Treadle. Two people need to agree on that, and the npm names are the part that cannot be
+taken back.

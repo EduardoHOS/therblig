@@ -31,7 +31,9 @@
     "probe": "node bench/probe/probe-conserve.mjs bench/corpus",
     "probe:comment-incidence": "node bench/probe/probe-comment-incidence.mjs 220",
     "licence-guard": "node scripts/licence-guard.mjs",
-    "therblig": "node backend/cli/bin.mjs"
+    "therblig": "node backend/cli/bin.mjs",
+    "probe:labels": "node bench/probe/probe-labels.mjs",
+    "probe:invariants": "node bench/probe/probe-invariants.mjs"
   },
   "dependencies": {
     "bpmn-auto-layout": "2.0.0-alpha.2",

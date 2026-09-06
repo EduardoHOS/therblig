@@ -105,7 +105,7 @@ function vendorsOf(xml) {
     const hit = VENDORS.find(([re]) => re.test(uri));
     if (hit) { found.add(hit[1]); continue; }
     // Unclassified: keep the host, so the corpus tells us what we have not modelled yet.
-    const host = (uri.match(/^\w+:\/\/([^/]+)/) || [, uri])[1];
+    const host = uri.match(/^\w+:\/\/([^/]+)/)?.[1] ?? uri;
     found.add(host.replace(/^www\./, ''));
   }
   return [...found].sort();

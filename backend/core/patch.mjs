@@ -1,5 +1,6 @@
 import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
 import { index, walk } from './document.mjs';
+import { pruneDI } from './placement.mjs';
 import { BPMN_EVENT_BY_KIND, BPMN_TYPE_BY_NODE } from './vocabulary.mjs';
 
 function mintId(byId, base) {
@@ -26,7 +27,11 @@ function insertionFor(byId, container, operation) {
   const target = targetId ? byId.get(targetId) : null;
   if (targetId && !target) throw new Error(`Node "${targetId}" not found`);
 
-  const existingFlows = container.flowElements.filter(
+  // flowNodesOf, not container.flowElements: a container that holds nothing yet has no
+  // flowElements array at all, and reading .filter off it throws. Reached on C.8.0,
+  // where the splice anchor's container is empty — found by the corpus sweep rather
+  // than by a fixture, because a fixture built to be edited always has contents.
+  const existingFlows = flowNodesOf(container).filter(
     (flow) =>
       flow.$type === 'bpmn:SequenceFlow' &&
       flow.sourceRef?.id === sourceId &&
@@ -91,6 +96,46 @@ function addNode({ moddle, byId, changed, created }, operation) {
   created.push(flowId);
 }
 
+// What `set` may write. Closed on purpose. The open `element[key] = value` fallthrough it
+// replaces assigned any key straight onto the moddle object, so a caller could put an id
+// string where an element reference belongs — `set {targetRef: 'X'}` serialized
+// targetRef="undefined", a silently corrupted graph that passed every gate — or a plain
+// string where a typed child collection belongs, which threw at serialize time, after the
+// edit had already been applied. See docs/FINDINGS.md F12.
+//
+// `if`, `default` and `documentation` are handled separately because each needs a typed
+// construction rather than an assignment.
+const SETTABLE = new Set([
+  'name',
+  'if',
+  'default',
+  'documentation',
+  'isExecutable',
+  'isForCompensation',
+  'isInterrupting',
+  'cancelActivity',
+  'triggeredByEvent',
+  'completionQuantity',
+  'startQuantity',
+]);
+
+// Refused with an explanation rather than silently mangled. The graph references belong
+// to adjacency.mjs — the architecture test enforces that for core modules, and this
+// enforces it for a caller's operations, which the test cannot see. `id` is refused
+// because a renamed id breaks every reference to it and the human is looking at the old
+// one in their modeller.
+const FORBIDDEN = new Set([
+  'sourceRef',
+  'targetRef',
+  'incoming',
+  'outgoing',
+  'attachedToRef',
+  'flowNodeRef',
+  'id',
+  '$type',
+  '$parent',
+]);
+
 function setElement({ moddle, byId, changed }, operation) {
   const element = byId.get(operation.id);
   if (!element) throw new Error(`Element "${operation.id}" not found`);
@@ -101,12 +146,106 @@ function setElement({ moddle, byId, changed }, operation) {
         value == null ? undefined : moddle.create('bpmn:FormalExpression', { body: value });
       if (element.conditionExpression) element.conditionExpression.$parent = element;
     } else if (key === 'default') {
-      element.default = byId.get(value);
+      const target = byId.get(value);
+      if (value != null && !target) throw new Error(`Default flow "${value}" not found`);
+      element.default = target;
+    } else if (key === 'documentation') {
+      // bpmn:Documentation is a typed child collection, not a string attribute.
+      if (value == null || value === '') {
+        element.documentation = undefined;
+      } else {
+        const documentation = moddle.create('bpmn:Documentation', { text: String(value) });
+        documentation.$parent = element;
+        element.documentation = [documentation];
+      }
+    } else if (FORBIDDEN.has(key)) {
+      throw new Error(
+        `"${key}" cannot be set directly — adjacency is recorded on both the flow and its ` +
+          'endpoints, and writing one side corrupts the graph. Use connect, move or del.',
+      );
+    } else if (!SETTABLE.has(key)) {
+      throw new Error(
+        `"${key}" is not settable. Allowed: ${[...SETTABLE].sort().join(', ')}.`,
+      );
     } else {
       element[key] = value;
     }
   }
   changed.add(operation.id);
+}
+
+/**
+ * Move a node into another lane.
+ *
+ * Lane membership is a list of flowNodeRef on the bpmn:Lane, not a property of the node,
+ * which is why `set {patch:{lane}}` had nothing to write. It is two edits — one lane
+ * loses the reference, another gains it — and doing half leaves the node listed twice or
+ * not at all.
+ */
+function moveElement({ definitions, byId, changed }, operation) {
+  const element = byId.get(operation.id);
+  if (!element) throw new Error(`Element "${operation.id}" not found`);
+  if (typeof operation.lane !== 'string') throw new Error('move needs a "lane" to move into');
+
+  const lane = byId.get(operation.lane);
+  if (!lane) throw new Error(`Lane "${operation.lane}" not found`);
+  if (lane.$type !== 'bpmn:Lane') {
+    throw new Error(`"${operation.lane}" is a ${lane.$type.replace('bpmn:', '')}, not a lane`);
+  }
+
+  for (const candidate of walk(definitions)) {
+    if (candidate.$type !== 'bpmn:Lane' || !candidate.flowNodeRef) continue;
+    const position = candidate.flowNodeRef.indexOf(element);
+    if (position >= 0 && candidate !== lane) {
+      candidate.flowNodeRef.splice(position, 1);
+      changed.add(candidate.id);
+    }
+  }
+
+  lane.flowNodeRef ??= [];
+  if (!lane.flowNodeRef.includes(element)) lane.flowNodeRef.push(element);
+  changed.add(lane.id);
+  changed.add(element.id);
+}
+
+/**
+ * Connect two nodes across a pool boundary.
+ *
+ * Only a message flow may cross one, and it belongs to the bpmn:Collaboration rather than
+ * to either process. Different parent, different collection, and no part in node
+ * adjacency — `incoming`/`outgoing` hold sequence flows only. Three structural
+ * differences, which is why this is a verb and not a flag on connect.
+ */
+function messageElements({ moddle, definitions, byId, changed, created }, operation) {
+  const source = byId.get(operation.from);
+  const target = byId.get(operation.to);
+  if (!source) throw new Error(`Source "${operation.from}" not found`);
+  if (!target) throw new Error(`Target "${operation.to}" not found`);
+
+  let collaboration = null;
+  for (const candidate of walk(definitions)) {
+    if (candidate.$type === 'bpmn:Collaboration') { collaboration = candidate; break; }
+  }
+  if (!collaboration) {
+    throw new Error('This file has no collaboration, so it has no pools for a message flow to cross');
+  }
+
+  const id =
+    operation.id && !byId.has(operation.id)
+      ? operation.id
+      : mintId(byId, `Message_${operation.from}_${operation.to}`);
+  const flow = moddle.create('bpmn:MessageFlow', {
+    id,
+    sourceRef: source,
+    targetRef: target,
+    ...(operation.name ? { name: operation.name } : {}),
+  });
+  flow.$parent = collaboration;
+  collaboration.messageFlows ??= [];
+  collaboration.messageFlows.push(flow);
+  byId.set(id, flow);
+  changed.add(id);
+  created.push(id);
 }
 
 function deleteElement({ definitions, byId, changed }, operation) {
@@ -226,10 +365,23 @@ export function applyPatch({ moddle, definitions }, operations) {
       case 'connect':
         connectElements(context, operation);
         break;
+      case 'move':
+        moveElement(context, operation);
+        break;
+      case 'message':
+        messageElements(context, operation);
+        break;
       default:
         throw new Error(`Unknown operation "${operation.op}"`);
     }
   }
 
-  return { changed: [...context.changed], created: context.created };
+  // Semantics and diagram are one document. `del` used to remove an element and leave
+  // its shape on the plane pointing at nothing — a file that still parses, still
+  // validates, and that coverage called fully covered because it only asked one
+  // direction. Pruning here rather than inside `del` makes it structural: no operation,
+  // present or future, can leave orphaned DI behind. See docs/FINDINGS.md F12.
+  const prunedDI = pruneDI(definitions);
+
+  return { changed: [...context.changed], created: context.created, prunedDI };
 }
