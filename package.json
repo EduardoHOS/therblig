@@ -17,7 +17,7 @@
   "scripts": {
     "lint": "oxlint --deny-warnings --import-plugin --node-plugin backend bench",
     "test": "node --test",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=backend/core/**/*.mjs --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=backend/core/**/*.mjs --test-coverage-include=backend/io/**/*.mjs --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100",
     "corpus": "node bench/scorer/baseline.mjs bench/corpus",
     "check": "npm run lint && npm run test:coverage && npm run corpus",
     "bench:profile": "node bench/corpus/profile.mjs bench/corpus",

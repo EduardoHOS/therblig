@@ -273,3 +273,24 @@ through, but makes nothing up when they are absent.
 **Minted ids lead with the kind** — `xor_split_<anchor>`, not `<anchor>_xor_split` — because
 `mintId` truncates a slug at 24 characters and real ids are long: the truncated form still says
 what the element is instead of reading as the anchor's own id.
+
+## ADR-019 — `backend/io` is the only filesystem boundary, and it confines by real path
+
+`confine(root, path)` resolves through `realpath`, so a `..` and a symlink pointing out of the
+workspace are refused by the same check, and the resolved path is what every later operation uses.
+An absent target is confined by its directory, because a write target does not exist yet;
+anything other than `ENOENT` surfaces as itself rather than as a confinement failure.
+
+`writeBpmnAtomic` writes a sibling temporary, `fsync`s it, re-reads it from disk and parses what
+actually landed, and only then renames over the target. The rename is the single step that touches
+the user's file, and it is atomic — so a failure at any earlier step leaves that file byte-identical.
+Cleanup runs on every throwing path and is best effort: it must never turn a real error into a
+confusing one, and it must never remove something the write did not create.
+
+**Rests on:** eight failure paths under test, each asserting the target is unchanged and the
+directory holds no leftovers — including a directory squatting on the temporary's name.
+
+**Guarded, not conventional:** an architecture test asserts no core module imports `node:fs` or
+`backend/io`. The one exception is `gates.mjs`, which reads the vendored OMG schemas that ship
+with the module and are not user input. `backend/io` is now under the same 100% coverage gate as
+the core.

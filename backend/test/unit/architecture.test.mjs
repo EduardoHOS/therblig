@@ -35,3 +35,17 @@ test('a node type is named in blocks/ and nowhere else in the core', async () =>
     }
   }
 });
+
+test('the core never reaches the filesystem; backend/io is the only place that does', async () => {
+  // gates.mjs reads the vendored OMG schemas, which ship with the module and are not user input.
+  const VENDORED_SCHEMAS = new Set(['gates.mjs']);
+  const files = (await readdir(CORE_ROOT, { recursive: true })).filter((file) =>
+    file.endsWith('.mjs'),
+  );
+
+  for (const file of files) {
+    const source = await readFile(new URL(file, CORE_ROOT), 'utf8');
+    if (!VENDORED_SCHEMAS.has(file)) assert.doesNotMatch(source, /from 'node:fs/, file);
+    assert.doesNotMatch(source, /from '\.\.\/io\//, file);
+  }
+});

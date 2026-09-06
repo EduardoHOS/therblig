@@ -22,12 +22,12 @@ a dangling `calledElement` is reported by nothing today.
 `extract` minting a called process). Resolve them across the loaded set and report what is
 missing from it, without claiming anything about files that were never opened.
 
-## CLI and atomic file replacement
+## CLI
 
-No CLI or file writer exists. Consequently, path confinement, temporary sibling writes,
-fsync behavior, and atomic rename are documented requirements but have no implementation.
+`backend/io` implements path confinement, sibling temporaries, fsync and atomic rename, and is
+under the coverage gate. No command exposes it yet.
 
-**Trigger:** the first command that accepts an input path or writes a `.bpmn` file.
+**Trigger:** the first command that accepts an input path from a user.
 
 ## MCP handles and persistence
 
