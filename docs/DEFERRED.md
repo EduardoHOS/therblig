@@ -54,6 +54,17 @@ and the envelope's `minted` and `inverse` then name an id that does not exist.
 **Trigger:** `propose()` (gates in core, PR-03). It compares `applyPatch`'s `created` with the
 envelope's `minted` and rejects the plan on mismatch instead of publishing a wrong inverse.
 
+## Plan-level placement
+
+Designed as `placePlan`, and then not written: F12 measured 18 of 18 fork/file combinations
+moving their shapes by a single delta with the existing per-element placement, because each new
+element finds its room in the gap the first one opened. Branch rows are stacked without reflowing
+what sits below them.
+
+**Trigger:** the first fixture where a fork's stacked rows collide with a shape below, or where a
+plan produces more than one distinct delta. Both are measured by the F9 gate, so the trigger
+fires as a test failure rather than as a judgement call.
+
 ## DI after an op: retargeted edges and inverse geometry
 
 `add … between` retargets an existing flow, but `placeNew` draws DI only for new ids, so the

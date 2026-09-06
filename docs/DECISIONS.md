@@ -250,3 +250,26 @@ compares the semantic fingerprint. A lossy inverse would pass that check while l
 
 **`risk` counts `lane` as routing.** Moving a step between lanes moves no token, but it changes
 who executes the work — not something an autonomous agent should do unreviewed.
+
+## ADR-018 — A fork mints its split and join as a pair
+
+`branch` and `parallel` create both gateways in one plan and return `{ split, join }`, so an
+unbalanced gateway stops being expressible at this height. The first branch consumes the direct
+split-to-join flow that `add … between` leaves behind, which is why that flow is always the one a
+default can name; every later branch is connected explicitly.
+
+**Rests on:** F12 — 18 of 18 file/op combinations move their shapes by a single delta, so the
+gate that distinguishes "made room" from "reflowed" stays green on the hardest edit in the brief.
+Plan-level placement was designed and then not written: it had no measured problem to solve.
+
+**`branch` is `routing`, not `additive`.** Its plan sets a default, and the risk level is computed
+from the plan rather than declared by the op — inserting a decision into a path that had none is
+exactly the kind of change a human should see.
+
+**The op never invents a label.** A diverging gateway and its conditional exit read as unlabelled
+decisions without one, and bpmnlint says so; `branch` takes `name` and `label` and passes them
+through, but makes nothing up when they are absent.
+
+**Minted ids lead with the kind** — `xor_split_<anchor>`, not `<anchor>_xor_split` — because
+`mintId` truncates a slug at 24 characters and real ids are long: the truncated form still says
+what the element is instead of reading as the anchor's own id.

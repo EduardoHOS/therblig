@@ -62,7 +62,7 @@ export function risk(plan) {
   return LEVEL[Math.max(0, ...plan.map((operation) => LEVEL.indexOf(riskOf(operation))))];
 }
 
-function envelope(op, args, { plan, inverse, minted, removes, footprint, explain }) {
+function envelope(op, args, { plan, inverse, minted, removes, result, footprint, explain }) {
   return {
     op,
     args,
@@ -70,15 +70,38 @@ function envelope(op, args, { plan, inverse, minted, removes, footprint, explain
     inverse,
     minted,
     ...(removes ? { removes } : {}),
+    ...(result ? { result } : {}),
     risk: risk(plan),
     footprint,
     explain,
   };
 }
 
-export function insertAfter(ir, args) {
-  const { anchor, step, via } = args;
-  const node = nodeOf(ir, anchor);
+// The single flow leaving an anchor, or a named refusal: an anchor with two exits has no
+// "after" until the caller says which one.
+function exitOf(ir, anchor, via) {
+  const exits = outgoing(ir, anchor);
+  if (!exits.length) {
+    throw precondition(
+      'anchor-no-outgoing',
+      `Anchor "${anchor}" has no outgoing flow — use connect to attach the new node`,
+    );
+  }
+  if (via) {
+    const chosen = exits.find((candidate) => candidate.id === via);
+    if (chosen) return chosen;
+    throw precondition('via-not-outgoing', `Flow "${via}" does not leave anchor "${anchor}"`);
+  }
+  if (exits.length > 1) {
+    throw precondition(
+      'anchor-ambiguous',
+      `Anchor "${anchor}" has ${exits.length} outgoing flows — pass via: ${exits.map((exit) => exit.id).join(' | ')}`,
+    );
+  }
+  return exits[0];
+}
+
+function assertInsertable(step) {
   if (!byIr.has(step.type)) {
     throw precondition('unknown-node-type', `Unknown node type "${step.type}"`);
   }
@@ -88,27 +111,14 @@ export function insertAfter(ir, args) {
       'Step type "boundary" cannot be inserted into a sequence — use timeout or onError',
     );
   }
+}
 
-  const exits = outgoing(ir, anchor);
-  if (!exits.length) {
-    throw precondition(
-      'anchor-no-outgoing',
-      `Anchor "${anchor}" has no outgoing flow — use connect to attach the new node`,
-    );
-  }
-  let flow;
-  if (via) {
-    flow = exits.find((candidate) => candidate.id === via);
-    if (!flow) throw precondition('via-not-outgoing', `Flow "${via}" does not leave anchor "${anchor}"`);
-  } else {
-    if (exits.length > 1) {
-      throw precondition(
-        'anchor-ambiguous',
-        `Anchor "${anchor}" has ${exits.length} outgoing flows — pass via: ${exits.map((exit) => exit.id).join(' | ')}`,
-      );
-    }
-    [flow] = exits;
-  }
+export function insertAfter(ir, args) {
+  const { anchor, step, via } = args;
+  const node = nodeOf(ir, anchor);
+  assertInsertable(step);
+
+  const flow = exitOf(ir, anchor, via);
 
   const ids = idsOf(ir);
   const id = mintId(ids, step.name ?? step.type);
@@ -334,5 +344,147 @@ export function message(ir, args) {
     minted: [id],
     footprint: { cols: 0, rows: 0 },
     explain: `${nameOf(poolOf(source))} sends ${name ? `"${name}" ` : ''}from "${nameOf(source)}" to "${nameOf(target)}" in ${nameOf(poolOf(target))}.`,
+  });
+}
+
+// A fork mints its split and join as a pair, so an unbalanced gateway stops being expressible at
+// this height. `connect` stays available for the shapes the catalogue does not cover.
+function fork(ir, args, { op, kind, anchor, via, branches, condition, label, name, straightFirst = false }) {
+  const node = nodeOf(ir, anchor);
+  if (branches.length < 2) {
+    throw precondition('too-few-branches', `A ${op} needs at least 2 branches — use insertAfter`);
+  }
+  branches.forEach((steps, index) => {
+    // A branch may be empty in exactly one place: the straight-through default of an xor, where
+    // the direct split→join flow is the path. Everywhere else it is a gateway pair for nothing.
+    if (!steps.length && !(straightFirst && index === 0)) {
+      throw precondition('empty-branch', `Branch ${index + 1} is empty`);
+    }
+    for (const step of steps) assertInsertable(step);
+  });
+
+  const spine = exitOf(ir, anchor, via);
+  const successor = nodeOf(ir, spine.to);
+  const ids = idsOf(ir);
+  const mint = (base) => {
+    const id = mintId(ids, base);
+    ids.add(id);
+    return id;
+  };
+
+  // Mint in the order patch.mjs will: a node, then the flow that `between` makes for it.
+  const split = mint(`${kind}_split_${anchor}`);
+  const splitFlow = mint(`Flow_${split}`);
+  const join = mint(`${kind}_join_${anchor}`);
+  const joinFlow = mint(`Flow_${join}`);
+  const minted = [split, splitFlow, join, joinFlow];
+
+  const plan = [
+    { op: 'add', type: kind, ...(name ? { name } : {}), id: split, in: node.in, between: [anchor, spine.to] },
+    { op: 'add', type: kind, id: join, in: node.in, between: [split, spine.to] },
+  ];
+
+  branches.forEach((steps, index) => {
+    let previous = split;
+    steps.forEach((step, position) => {
+      const id = mint(step.name ?? step.type);
+      const named = step.name ? { name: step.name } : {};
+      if (index === 0) {
+        // The first branch consumes the direct split→join flow, so `splitFlow` ends up leaving
+        // the split along it — which is exactly what a default has to be.
+        plan.push({ op: 'add', type: step.type, ...named, id, in: node.in, between: [previous, join] });
+        minted.push(id, mint(`Flow_${id}`));
+      } else {
+        const inflow = mint(`Flow_${id}_in`);
+        plan.push({ op: 'add', type: step.type, ...named, id, in: node.in });
+        plan.push({
+          op: 'connect',
+          from: previous,
+          to: id,
+          id: inflow,
+          ...(position === 0 && condition ? { if: condition } : {}),
+          ...(position === 0 && label ? { name: label } : {}),
+        });
+        minted.push(id, inflow);
+        if (position === steps.length - 1) {
+          const outflow = mint(`Flow_${id}_out`);
+          plan.push({ op: 'connect', from: id, to: join, id: outflow });
+          minted.push(outflow);
+        }
+      }
+      previous = id;
+    });
+  });
+
+  if (condition) plan.push({ op: 'set', id: split, patch: { default: splitFlow } });
+
+  return {
+    node,
+    successor,
+    split,
+    join,
+    plan,
+    minted,
+    cols: 2 + Math.max(...branches.map((steps) => steps.length)),
+    rows: branches.length,
+    // `del` on a gateway cascades every flow touching it, and those flows cascade the branch
+    // nodes, so deleting the pair is the whole undo.
+    inverse: [
+      { op: 'set', id: spine.id, patch: { to: spine.to } },
+      { op: 'del', id: split },
+      { op: 'del', id: join },
+    ],
+  };
+}
+
+const chain = (steps) => steps.map((step) => `"${step.name ?? step.type}"`).join(' then ');
+
+export function branch(ir, args) {
+  const { anchor, when, yes = [], no, via, name, label } = args;
+  if (!when) throw precondition('missing-condition', 'A branch needs a condition — pass when');
+  if (!yes.length) throw precondition('empty-branch', 'The yes branch is empty');
+
+  // The "no" path goes first so it keeps the direct split→join flow, which is what the default
+  // has to be — whether that path carries steps or goes straight through.
+  const straight = !no;
+  const built = fork(ir, args, {
+    op: 'branch',
+    kind: 'xor',
+    anchor,
+    via,
+    branches: [no ?? [], yes],
+    condition: when,
+    // A diverging gateway and its conditional exit read as unlabelled decisions without these,
+    // which bpmnlint reports and a human cannot follow. The op never invents them.
+    label,
+    name,
+    straightFirst: straight,
+  });
+
+  return envelope('branch', args, {
+    plan: built.plan,
+    inverse: built.inverse,
+    minted: built.minted,
+    footprint: { cols: built.cols, rows: 2 },
+    result: { split: built.split, join: built.join },
+    explain: `After "${nameOf(built.node)}", take ${chain(yes)} when ${when}, and otherwise ${
+      straight ? 'carry straight on' : chain(no)
+    }; both rejoin before "${nameOf(built.successor)}".`,
+  });
+}
+
+export function parallel(ir, args) {
+  const { anchor, branches = [], via } = args;
+  const built = fork(ir, args, { op: 'parallel', kind: 'and', anchor, via, branches });
+
+  return envelope('parallel', args, {
+    plan: built.plan,
+    inverse: built.inverse,
+    minted: built.minted,
+    footprint: { cols: built.cols, rows: built.rows },
+    result: { split: built.split, join: built.join },
+    explain: `After "${nameOf(built.node)}", run ${branches
+      .map(chain)
+      .join(' and ')} at the same time; all rejoin before "${nameOf(built.successor)}".`,
   });
 }

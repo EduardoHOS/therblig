@@ -265,3 +265,32 @@ Adding a message flow from a task that already has one outgoing sequence flow ma
 message flow, so the rule is counting something that does not branch. The gate reports the style
 delta rather than special-casing a linter rule; `recommended` is a style opinion (ADR-006), and
 `correctness` stays green.
+
+## F12 — a fork makes room, it does not reflow
+
+F9 established that "made room" and "reflowed" are distinguishable: making room is a rigid
+translation where every shape that moved moved by the same delta, and a relayout scrambles them
+into many. The fork ops are the hardest structural edit in `bench/tasks/TASKS.md` — a split and a
+join and two branches between them — so they are where that distinction had to be re-measured.
+
+| file | `insertAfter` | `branch` | `parallel` | shapes / total |
+|---|---|---|---|---|
+| `handmade/zeebe-roundtrip` | 1 delta | 1 delta | 1 delta | 2 / 4 |
+| `miwg/A.1.0` | 1 delta | 1 delta | 1 delta | 3 / 5 |
+| `miwg/C.9.1` | 1 delta | 1 delta | 1 delta | 8 / 11 |
+| `miwg/C.9.0` | 1 delta | 1 delta | 1 delta | 15–17 / 26 |
+| `miwg/C.4.0` | 1 delta | 1 delta | 1 delta | 35–39 / 53 |
+| `miwg/B.2.0` | 1 delta | 1 delta | 1 delta | 59–66 / 99 |
+
+**18 of 18 combinations: one distinct delta, verdict "made room".** No plan-level placement pass
+was needed — placing the minted elements one at a time already produces a single rigid shift,
+because each new element finds its room in the gap the first one opened.
+
+`B.2.0` is missing DI for 5 of its 185 elements before any edit and for the same 5 after: every
+element the ops created got a shape or an edge. The gap is the file's, not the edit's.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/ops-fork.test.mjs
+```
