@@ -35,5 +35,8 @@
   },
   "devDependencies": {
     "oxlint": "1.81.0"
+  },
+  "bin": {
+    "treadle": "backend/cli/main.mjs"
   }
 }

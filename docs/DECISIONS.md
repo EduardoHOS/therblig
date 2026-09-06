@@ -294,3 +294,27 @@ directory holds no leftovers — including a directory squatting on the temporar
 `backend/io`. The one exception is `gates.mjs`, which reads the vendored OMG schemas that ship
 with the module and are not user input. `backend/io` is now under the same 100% coverage gate as
 the core.
+
+## ADR-020 — The CLI reads before it writes, and confines to the working directory
+
+`treadle project`, `lint` and `explain` ship first, with no write path at all. They need none of
+the machinery a writer does, so they are the shortest route to something someone can actually run,
+and a smoke test asserts that none of the three leaves a byte behind.
+
+Paths are confined to `process.cwd()`, widened by `--root`. CLAUDE.md treats a file path as
+untrusted, and a human at a terminal is only trusted until an agent is driving the same binary;
+the refusal names the flag that widens the workspace, so the safe default is not a dead end.
+
+`explain` calls no model. Everything it prints is derived from the IR, so the same file always
+gives the same bytes and two explanations can be diffed. It reports what a reader cannot see by
+looking: the handlers attached to each activity, what can never run, and what never ends.
+
+**Reachability accounts for how a node really runs.** Seeding from start events alone reported
+four of `C.9.0`'s nodes as unreachable, and all four were lies: two are event subprocesses, which
+are triggered by their own start event and have no incoming flow by definition, and the other two
+sit downstream of an error boundary, which fires when its host runs. The walk seeds from triggered
+nodes and wakes a boundary whose host it has reached, to a fixed point.
+
+**Not under the line-coverage gate.** The smoke suite spawns the real entrypoint, and coverage is
+not collected across processes. Every command, exit code and failure path is covered by a spawned
+test instead — which is stronger evidence for a CLI than a line count.

@@ -22,13 +22,6 @@ a dangling `calledElement` is reported by nothing today.
 `extract` minting a called process). Resolve them across the loaded set and report what is
 missing from it, without claiming anything about files that were never opened.
 
-## CLI
-
-`backend/io` implements path confinement, sibling temporaries, fsync and atomic rename, and is
-under the coverage gate. No command exposes it yet.
-
-**Trigger:** the first command that accepts an input path from a user.
-
 ## MCP handles and persistence
 
 ADR-010 selects opaque handles, `base_rev`, and idempotent `patch_id` values, but no MCP

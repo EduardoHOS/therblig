@@ -17,6 +17,7 @@ library do not exist yet. Do not describe planned surfaces as shipped.
 
 - `backend/core/` — the functional product core. No filesystem, CLI, network, or MCP I/O.
 - `backend/io/` — the only place that touches a filesystem: confinement and atomic replacement.
+- `backend/cli/` — argument parsing and presentation. No product logic of its own.
 - `backend/test/` — all tests for the backend core, grouped by test kind.
 - `bench/` — corpus, benchmark arms, probes, scorers, and task definitions.
 - `docs/` — empirical findings, architecture decisions, deferred work, and plans.
@@ -88,7 +89,8 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 - Use the built-in `node:test` runner and `node:assert/strict`.
 - Tests live in `backend/test/{unit,integration,property,smoke}` as each kind becomes real.
 - Unit tests are pure and fast. Integration tests exercise real parsers, validators, and
-  committed BPMN fixtures. Smoke tests drive actual CLI/MCP entrypoints once they exist.
+  committed BPMN fixtures. Smoke tests spawn the actual CLI/MCP entrypoints; because coverage is
+  not collected across processes, the smoke suite — not a line count — is the CLI's gate.
 - A guard test must fail when the guard is removed. Exercise the production entrypoint,
   not a neighboring helper that cannot reproduce the failure.
 - Cover happy paths, malformed inputs, unknown operations, missing references, duplicate
