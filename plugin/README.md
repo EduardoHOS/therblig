@@ -8,7 +8,7 @@ what BPMN's structure makes unsafe about ordinary text editing.
 /plugin install therblig@therblig
 ```
 
-The server is fetched with `npx -y therblig-mcp` and confined to `${CLAUDE_PROJECT_DIR}`.
+The server is fetched with `npx -y -p therblig therblig-mcp` and confined to `${CLAUDE_PROJECT_DIR}`.
 Nothing is uploaded anywhere: it reads and writes local files and makes no network calls.
 
 ## What is in here

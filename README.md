@@ -60,7 +60,7 @@ failures is worth nothing. Details and repro steps: [docs/FINDINGS.md](docs/FIND
 ## Use it
 
 ```bash
-claude mcp add therblig -- npx -y therblig-mcp --root .
+claude mcp add therblig -- npx -y -p therblig therblig-mcp --root .
 ```
 
 Or as a plugin, which brings a skill along with the server:
@@ -74,7 +74,7 @@ Or as a plugin, which brings a skill along with the server:
 <summary>Cursor, VS Code, and anything else that speaks MCP</summary>
 
 ```json
-{ "mcpServers": { "therblig": { "command": "npx", "args": ["-y", "therblig-mcp", "--root", "."] } } }
+{ "mcpServers": { "therblig": { "command": "npx", "args": ["-y", "-p", "therblig", "therblig-mcp", "--root", "."] } } }
 ```
 
 VS Code uses `servers` as the top-level key rather than `mcpServers`; everything else is
@@ -223,7 +223,7 @@ Evidence first, then ship, then study.
    replaced the licence guard, wrote the red probes.
 2. ~~**Core + oracle**~~ — done. The write-guard is built *separately* from the gates that
    scored the benchmark; conflating those is how F9 came to be trusted.
-3. ~~**`npx -y therblig-mcp`**~~ — done. Read, explain, lint, verify, preview.
+3. ~~**`npx -y -p therblig therblig-mcp`**~~ — done. Read, explain, lint, verify, preview.
 4. ~~**Guarded writes**~~ — done. base_rev, an atomic rename, and a barrier that leaves
    the file byte-identical when it refuses.
 5. ~~**The preservation receipt**~~ — done. An offline-checkable proof that nothing

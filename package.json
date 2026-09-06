@@ -1,9 +1,9 @@
 {
-  "name": "therblig-bench",
-  "version": "0.0.0",
-  "private": true,
+  "name": "therblig",
+  "version": "0.1.0",
+  "private": false,
   "type": "module",
-  "description": "Benchmark harness for therblig: does a structured patch API make an LLM more correct at editing BPMN than editing the XML directly?",
+  "description": "Read, explain, lint and edit the .bpmn files already in your repo, without wrecking the diagram. MCP server, CLI and library for BPMN 2.0.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/EduardoHOS/therblig#readme",
   "bugs": "https://github.com/EduardoHOS/therblig/issues",
@@ -33,17 +33,58 @@
     "licence-guard": "node scripts/licence-guard.mjs",
     "therblig": "node backend/cli/bin.mjs",
     "probe:labels": "node bench/probe/probe-labels.mjs",
-    "probe:invariants": "node bench/probe/probe-invariants.mjs"
+    "probe:invariants": "node bench/probe/probe-invariants.mjs",
+    "pack-audit": "node scripts/pack-audit.mjs"
   },
   "dependencies": {
-    "bpmn-auto-layout": "2.0.0-alpha.2",
-    "bpmn-moddle": "^10.2.0",
-    "bpmnlint": "^11.13.0",
-    "xmllint-wasm": "^5.3.0",
     "@modelcontextprotocol/server": "2.0.0",
+    "bpmn-moddle": "^10.2.0",
+    "xmllint-wasm": "^5.3.0",
     "zod": "^4.2.0"
   },
   "devDependencies": {
-    "oxlint": "1.81.0"
-  }
+    "oxlint": "1.81.0",
+    "bpmn-auto-layout": "2.0.0-alpha.2",
+    "bpmnlint": "^11.13.0"
+  },
+  "author": "EduardoHOS",
+  "keywords": [
+    "bpmn",
+    "bpmn2",
+    "mcp",
+    "model-context-protocol",
+    "process",
+    "workflow",
+    "diagram",
+    "camunda"
+  ],
+  "mcpName": "io.github.eduardohos/therblig",
+  "bin": {
+    "therblig": "./backend/cli/bin.mjs",
+    "therblig-mcp": "./backend/mcp/bin.mjs"
+  },
+  "exports": {
+    ".": "./backend/core/index.mjs",
+    "./core": "./backend/core/index.mjs",
+    "./oracle": "./backend/oracle/inspect.mjs",
+    "./diff": "./backend/oracle/diff.mjs",
+    "./receipt": "./backend/receipt.mjs",
+    "./render": "./backend/render/svg.mjs",
+    "./explain": "./backend/explain.mjs",
+    "./mcp": "./backend/mcp/server.mjs"
+  },
+  "files": [
+    "backend/core",
+    "backend/oracle",
+    "backend/io",
+    "backend/render",
+    "backend/cli",
+    "backend/mcp",
+    "backend/explain.mjs",
+    "backend/receipt.mjs",
+    "third_party",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ]
 }
