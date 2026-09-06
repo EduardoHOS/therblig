@@ -38,6 +38,8 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
 - `adjacency.mjs` is the only module allowed to assign `sourceRef`, `targetRef`,
   `incoming`, or `outgoing`.
 - `patch.mjs` owns the four patch operations: `add`, `set`, `del`, and `connect`.
+- `ops.mjs` compiles intent (`insertAfter`, `timeout`, `rename`, …) into plans of those four
+  operations. It reads the IR and never the tree; the envelope's `risk` is computed from the plan.
 - `placement.mjs` adds DI for new elements and measures DI coverage.
 - `vocabulary.mjs` owns the closed BPMN-to-IR node and event vocabularies.
 - `index.mjs` is the backend core's public surface.

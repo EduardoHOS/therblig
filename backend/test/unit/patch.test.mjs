@@ -243,3 +243,86 @@ test('a rejected add leaves the document unchanged', async () => {
     assert.equal(await serialize(document), before);
   }
 });
+
+test('add sets a timer duration on the timer event definition', async () => {
+  const { document, normalized } = await normalizedFixture();
+  applyPatch(document, [
+    {
+      op: 'add',
+      type: 'boundary',
+      in: 'Payment',
+      id: 'Timeout',
+      on: 'Charge',
+      event: 'timer',
+      timer: { duration: 'P3D' },
+    },
+  ]);
+
+  const timer = index(document.definitions).get('Timeout').eventDefinitions[0];
+  assert.equal(timer.timeDuration.body, 'P3D');
+
+  const result = await scoreAll(normalized, await serialize(document), {
+    expectChangedIds: ['Timeout'],
+  });
+  assert.equal(result.gates.xsdValid.ok, true);
+});
+
+test('add refuses a timer that is not exactly one of duration, cycle, or date', async () => {
+  const cases = [
+    [{ event: 'timer', timer: {} }, /Timer requires exactly one of duration, cycle, or date/],
+    [
+      { event: 'timer', timer: { duration: 'P1D', cycle: 'R/PT1H' } },
+      /Timer requires exactly one of duration, cycle, or date/,
+    ],
+    [{ event: 'message', timer: { duration: 'P1D' } }, /Timer requires event "timer"/],
+  ];
+
+  for (const [extra, expected] of cases) {
+    const { document } = await normalizedFixture();
+    assert.throws(
+      () =>
+        applyPatch(document, [
+          { op: 'add', type: 'boundary', in: 'Payment', on: 'Charge', ...extra },
+        ]),
+      expected,
+    );
+  }
+});
+
+test('set to retargets a flow through adjacency', async () => {
+  const { document } = await normalizedFixture();
+  applyPatch(document, [{ op: 'set', id: 'Flow_2', patch: { to: 'End_1' } }]);
+
+  const byId = index(document.definitions);
+  const flow = byId.get('Flow_2');
+  assert.equal(flow.targetRef.id, 'End_1');
+  assert.ok(byId.get('End_1').incoming.includes(flow));
+  assert.equal(byId.get('Review').incoming.includes(flow), false);
+
+  assert.throws(
+    () => applyPatch(document, [{ op: 'set', id: 'Flow_2', patch: { to: 'Nope' } }]),
+    /Target "Nope" not found/,
+  );
+  assert.throws(
+    () => applyPatch(document, [{ op: 'set', id: 'Charge', patch: { to: 'End_1' } }]),
+    /Element "Charge" is not a flow/,
+  );
+});
+
+test('set null removes an attribute instead of writing "null"', async () => {
+  const { document } = await normalizedFixture();
+  applyPatch(document, [{ op: 'set', id: 'Charge', patch: { name: null } }]);
+
+  assert.equal(project(document.definitions).nodes.find((node) => node.id === 'Charge').name, undefined);
+  assert.doesNotMatch(await serialize(document), /name="null"/);
+});
+
+test('delete removes the DI of every removed element', async () => {
+  const { document } = await normalizedFixture();
+  applyPatch(document, [{ op: 'del', id: 'Review' }]);
+
+  const xml = await serialize(document);
+  for (const id of ['Review', 'Flow_2', 'Flow_3']) {
+    assert.doesNotMatch(xml, new RegExp(`bpmnElement="${id}"`), `${id} still has DI`);
+  }
+});

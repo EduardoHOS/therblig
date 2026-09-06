@@ -124,3 +124,23 @@ Target `@modelcontextprotocol/server@2`, not the frozen v1 `@modelcontextprotoco
 
 **Open:** how far back to support older spec revisions. 2026-07-28 shipped five weeks ago
 and client lag is near-certain.
+
+## ADR-011 — Ops compile intent to primitives; nothing above `patch.mjs` touches the tree
+
+An op is a pure function `(IR, args) → envelope`. The envelope carries a `plan` of the four
+primitives, its `inverse`, the ids it will mint, a `risk` level computed from the plan, a DI
+`footprint`, and a one-sentence `explain`. Applying the plan is `applyPatch`'s job; the op never
+imports the parser or creates a moddle object (guarded in `architecture.test.mjs`).
+
+**Rests on:** the bake-off brief in `bench/tasks/TASKS.md` — every edit category is a question of
+intent ("add a step where someone checks the documents"), and the primitives are permissive where
+intent is strict: `add … after` on a node with two exits retargets both. The op refuses that with a
+named remedy (`anchor-ambiguous — pass via: …`) before the primitive can guess. Testable with a
+literal IR, so the ops layer costs no parser in its unit tests.
+
+**Risk is computed, never declared:** `del` or `connect … remove` → `destructive`; `set` of `if`,
+`default` or `to` → `routing`; `add`/`connect` → `additive`; else `safe`. A declared level would
+drift from the plan; a computed one cannot.
+
+**Reverses if:** an op cannot be expressed as primitives without a new primitive that only that op
+uses. That is the signal the primitive set is wrong, not that the op should reach into the tree.

@@ -15,3 +15,10 @@ test('only adjacency.mjs directly assigns BPMN graph references', async () => {
     assert.doesNotMatch(source, /\.(?:incoming|outgoing)\s*=(?!=)/, file);
   }
 });
+
+test('ops.mjs compiles intent to primitives without touching the parser or the tree', async () => {
+  const source = await readFile(new URL('ops.mjs', CORE_ROOT), 'utf8');
+  assert.doesNotMatch(source, /from '\.\/document\.mjs'/);
+  assert.doesNotMatch(source, /from 'bpmn-moddle'/);
+  assert.doesNotMatch(source, /moddle\.create/);
+});

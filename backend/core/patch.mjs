@@ -2,7 +2,7 @@ import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
 import { index, walk } from './document.mjs';
 import { BPMN_EVENT_BY_KIND, BPMN_TYPE_BY_NODE } from './vocabulary.mjs';
 
-function mintId(byId, base) {
+export function mintId(byId, base) {
   const slug =
     String(base).replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'Element';
   let id = slug;
@@ -10,6 +10,8 @@ function mintId(byId, base) {
   while (byId.has(id)) id = `${slug}_${++suffix}`;
   return id;
 }
+
+const TIMER_PROPERTY = { duration: 'timeDuration', cycle: 'timeCycle', date: 'timeDate' };
 
 function flowNodesOf(container) {
   container.flowElements ??= [];
@@ -60,6 +62,18 @@ function addNode({ moddle, byId, changed, created }, operation) {
     element.eventDefinitions = [definition];
   }
 
+  if (operation.timer) {
+    if (operation.event !== 'timer') throw new Error('Timer requires event "timer"');
+    const given = Object.keys(TIMER_PROPERTY).filter((key) => operation.timer[key] != null);
+    if (given.length !== 1) {
+      throw new Error('Timer requires exactly one of duration, cycle, or date');
+    }
+    const [definition] = element.eventDefinitions;
+    const expression = moddle.create('bpmn:FormalExpression', { body: operation.timer[given[0]] });
+    expression.$parent = definition;
+    definition[TIMER_PROPERTY[given[0]]] = expression;
+  }
+
   if (operation.on) {
     const host = byId.get(operation.on);
     if (!host) throw new Error(`Boundary host "${operation.on}" not found`);
@@ -102,6 +116,11 @@ function setElement({ moddle, byId, changed }, operation) {
       if (element.conditionExpression) element.conditionExpression.$parent = element;
     } else if (key === 'default') {
       element.default = byId.get(value);
+    } else if (key === 'to') {
+      if (!element.$type.endsWith('Flow')) throw new Error(`Element "${operation.id}" is not a flow`);
+      const target = byId.get(value);
+      if (!target) throw new Error(`Target "${value}" not found`);
+      retarget(element, target);
     } else {
       element[key] = value;
     }
@@ -133,6 +152,15 @@ function deleteElement({ definitions, byId, changed }, operation) {
       (removed.has(other.sourceRef) || removed.has(other.targetRef))
     ) {
       removed.add(other);
+    }
+  }
+
+  // DI is not a BPMN reference, so the XSD accepts a shape whose element is gone. Drop it here so
+  // that "every element requiring DI has DI" also holds in reverse.
+  for (const diagram of elements) {
+    if (/^bpmndi:BPMN(Shape|Edge)$/.test(diagram.$type) && removed.has(diagram.bpmnElement)) {
+      const siblings = diagram.$parent.planeElement;
+      siblings.splice(siblings.indexOf(diagram), 1);
     }
   }
 

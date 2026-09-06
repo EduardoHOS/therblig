@@ -54,3 +54,23 @@ add configuration and dependencies without an operational consumer.
 
 **Trigger:** a long-running MCP server or hosted process with an actual logging/metrics
 destination. Until then, errors remain actionable and scripts exit non-zero on failure.
+
+## Op ids are minted against the projection
+
+`ops.mjs` mints ids against the id set of the IR, which omits ids the projection does not show
+(event definitions, data objects, DI). A collision there makes `patch.mjs` re-mint at apply time,
+and the envelope's `minted` and `inverse` then name an id that does not exist.
+
+**Trigger:** `propose()` (gates in core, PR-03). It compares `applyPatch`'s `created` with the
+envelope's `minted` and rejects the plan on mismatch instead of publishing a wrong inverse.
+
+## DI after an op: retargeted edges and inverse geometry
+
+`add … between` retargets an existing flow, but `placeNew` draws DI only for new ids, so the
+existing edge keeps its waypoints and still ends at the old target — in the `insertAfter` diff,
+`E_Flow_2` runs through the inserted shape. Semantics are right; the picture is stale. Separately,
+an op's `inverse` restores the semantic tree and removes the DI of minted elements, but shapes
+shifted to make room stay shifted; until a geometric undo exists, `git checkout` is that undo.
+
+**Trigger:** plan-level placement (PR-06). `placePlan` re-routes every edge whose source or target
+was placed or shifted, and records the pre-shift bounds so the inverse can restore them.
