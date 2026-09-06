@@ -322,44 +322,70 @@ treadle apply p.bpmn --op timeout --args '{"on":"…","after":"P3D","to":"…","
 The one style delta the ops do not fix is `no-implicit-split` on a message flow's source (F11),
 which is bpmnlint counting something BPMN does not branch on.
 
-## F14 — the first paid bench run measured the harness, not the arms
+## F14 — four harness defects, found by spending $6 before claiming anything
 
-Three cells were run against the real API on 2026-09-06 (T04, one run each of `raw`, `raw_ir`,
-`treadle`; **$2.40 total including probes**). None of them produced a usable measurement, and the
-scoreboard they would have produced — `raw 1/1, raw_ir 1/1, treadle 0/1` — is false.
+The bench was run against the real API on 2026-09-06. The first three cells would have printed
+`raw 1/1, raw_ir 1/1, treadle 0/1`. **That scoreboard was false**, and so were the two after it.
+Four defects had to be closed before a single cell measured what it claimed to.
 
-### Defect 1: the structured arm never received its tools
+| # | defect | how it showed | fix |
+|---|---|---|---|
+| 1 | the structured arm received no tools | `mcp_servers: connected`, zero `mcp__treadle__*` in context; the agent spent its session calling `ToolSearch` for `Read` and `Edit` | see below |
+| 2 | a rejected schema drops a whole server | `z.record(z.string(), z.unknown())` renders as `propertyNames` + `additionalProperties`, which the CLI rejects — silently, and for **every** tool on that server | `z.looseObject({})` |
+| 3 | tool search deferred what was left | 16 tools sat behind `ToolSearch` instead of being in the turn-one prompt | `ENABLE_TOOL_SEARCH=false` |
+| 4 | **the arms were not isolated** | arm A called `mcp__treadle__open`. `allowedTools` auto-approves rather than restricts, and naming a tool in `disallowedTools` did not remove it either | each arm gets only the server it should have; `only` filters the tool list |
 
-`mcp_servers` reports `[{"name":"treadle","status":"connected"}]`, and the agent's `tools` list
-contains no `mcp__treadle__*` entry at all. Arm C spent its whole session calling `ToolSearch`
-looking for `Read`, `Edit` and `Bash` — tools it had been denied — and then stopped.
+Defect 1 was diagnosed wrongly at first: three documented `alwaysLoad` paths were tried and blamed
+before defect 2 turned out to be the cause. The record is kept as it happened — `alwaysLoad` on
+`createSdkMcpServer` genuinely is not propagated onto the config it returns, but that was not why
+the tools were missing.
 
-The SDK defers MCP tools behind tool search by default. Three documented ways to opt out were
-tried on `@anthropic-ai/claude-agent-sdk@0.3.263` and **none of them worked**:
+**A correction.** An earlier version of this finding claimed the developer's machine leaked into
+every cell, citing 16 skills, 48 slash commands and 5 agents in the `init` message. That was wrong:
+`plugins: []` in the same message shows `settingSources: []` did its job, and the skills and slash
+commands are the CLI's own — identical for anyone running this. The claim is withdrawn.
 
-| attempt | result |
-|---|---|
-| `createSdkMcpServer({ …, alwaysLoad: true })` | not propagated — the returned config carries only `{ type, name, instance }` |
-| `alwaysLoad: true` on the config passed to `mcpServers` | no change |
-| `tool(…, …, …, …, { alwaysLoad: true })` per tool | no change |
+Defect 4 is the one that would have poisoned everything. Two arms sharing a tool surface is not a
+comparison, and nothing in the scoreboard would have shown it; only the recorded transcript did.
 
-### Defect 2: the developer's machine leaks into every cell
+### What the harness now refuses to do
 
-With `settingSources: []` **and** a fresh `CLAUDE_CONFIG_DIR`, the session's `init` message still
-reports **16 skills, 48 slash commands and 5 agents** belonging to the host. An arm running with
-the maintainer's own skills available is not the arm the table claims to describe, and the result
-would not reproduce on another machine. This applies to `raw` and `raw_ir` too — their apparent
-passes are not evidence either.
+A cell that used none of its own arm's tools is scored `HARNESS`, not as a product failure —
+that guard is what caught defect 1 instead of turning it into a finding about the product.
 
-### What the harness now does about it
+### Calibration, not a result
 
-A cell that used none of its own arm's tools is scored as `HARNESS`, not as a product failure —
-the guard that caught defect 1 rather than turning it into a false finding. `replay.mjs` prints
-how many cells fell into that bucket, and the invalid runs were deleted rather than committed.
+One cell (T04, one run per arm) after all four fixes:
 
-**Nothing may be claimed about the arms until both defects are closed.** Reproduce:
+| arm | what it called | turns | cost |
+|---|---|---|---|
+| `raw` | `Read → Edit ×5 → Grep` | 8 | $0.54 |
+| `raw_ir` | `open → project → Read → Edit ×5 → lint` | 11 | $0.75 |
+| `treadle` | `open → project → bypass → publish → lint` | 6 | $0.34 |
+
+All three produced a correct edit. **These numbers are a budget calibration and nothing else.**
+N=1 on one task in one category; the same cell has cost $0.24 and $0.80 across runs on identical
+inputs. The 20 × 3 × 3 design exists because a single cell cannot distinguish a result from
+variance, and no percentage may be quoted from this table.
+
+## F15 — the first valid bench cell found two defects in the shipped MCP server
+
+Neither was visible from the test suite, and both came out of one transcript.
+
+**The model had to guess argument names.** Every op declared `args: { type: 'object' }`, so nothing
+told an agent what went inside. The transcript shows `bypass` called three times in a row with
+`{target}`, then `{node}`, then `{id}`. The design document that specified this server had already
+warned against it — *"uma ferramenta genérica `apply(op, args)` joga essa acurácia fora"* — and the
+implementation did it anyway. Every op now declares its real arguments, with `additionalProperties:
+false`.
+
+**The idempotency cache was keyed by `patch_id` alone.** The agent reused one id across its retries
+and then on `publish`, which found the `bypass` result under that key and returned it as its own:
+nothing was written, and the agent reported success. A `patch_id` is the caller's, and a caller
+reuses one; the tool is part of the identity of a call, so the key is now `tool:patch_id`.
+
+Both are covered by smoke tests that spawn the real stdio server. Reproduce:
 
 ```sh
-npm run bench:agent -- --tasks T04 --arms treadle --runs 1 --yes
-npm run bench:replay
+node --test backend/test/smoke/mcp.test.mjs
 ```

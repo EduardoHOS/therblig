@@ -49,13 +49,79 @@ const object = (properties, required) => ({
   additionalProperties: false,
 });
 
+const id = (description) => ({ type: 'string', description });
+const STEP = object(
+  { type: id('An IR word: user, service, task, xor, and, subprocess, …'), name: { type: 'string' } },
+  ['type'],
+);
+
+// The arguments each op takes, in full. A generic `args: object` throws away the accuracy the
+// schema exists to give: the first valid bench cell watched an agent guess `target`, then `node`,
+// then `id` for bypass, because nothing told it which was right.
+const ARGS = {
+  insertAfter: object(
+    { anchor: id('The node to insert after.'), step: STEP, via: id('Which exit, when the anchor has more than one.') },
+    ['anchor', 'step'],
+  ),
+  timeout: object(
+    {
+      on: id('The activity that may run long.'),
+      after: id('An ISO-8601 duration, such as P3D or PT2H.'),
+      to: id('Where the timeout goes.'),
+      name: { type: 'string', description: 'Labels the handler. Without it the model reads as unlabelled.' },
+    },
+    ['on', 'after', 'to'],
+  ),
+  onError: object(
+    { on: id('The activity that may fail.'), to: id('Where the failure goes.'), name: { type: 'string' } },
+    ['on', 'to'],
+  ),
+  rename: object({ id: id('The element to rename.'), name: { type: 'string' } }, ['id', 'name']),
+  bypass: object({ id: id('The step to remove; the chain is healed across it.') }, ['id']),
+  moveToLane: object({ id: id('The node to move.'), lane: id('A lane of the same container.') }, ['id', 'lane']),
+  guard: object(
+    {
+      flow: id('A flow leaving a gateway.'),
+      if: { type: 'string', description: 'The condition expression. Pass this or default, never both.' },
+      default: { type: 'boolean', description: 'Make this the gateway default.' },
+    },
+    ['flow'],
+  ),
+  message: object(
+    { from: id('A node in one pool.'), to: id('A node in another pool.'), name: { type: 'string' } },
+    ['from', 'to'],
+  ),
+  branch: object(
+    {
+      anchor: id('The node to branch after.'),
+      when: { type: 'string', description: 'The condition for the yes path.' },
+      yes: { type: 'array', items: STEP },
+      no: { type: 'array', items: STEP, description: 'Omit for a straight-through default.' },
+      via: id('Which exit, when the anchor has more than one.'),
+      name: { type: 'string', description: 'Labels the gateway.' },
+      label: { type: 'string', description: 'Labels the conditional exit.' },
+    },
+    ['anchor', 'when', 'yes'],
+  ),
+  parallel: object(
+    {
+      anchor: id('The node to fork after.'),
+      branches: { type: 'array', items: { type: 'array', items: STEP } },
+      via: id('Which exit, when the anchor has more than one.'),
+    },
+    ['anchor', 'branches'],
+  ),
+};
+
 // Every mutating tool takes the same three: which document, which revision it was reasoned
 // against, and an id that makes a retry idempotent.
 const MUTATING = {
   handle: HANDLE,
   base_rev: { type: 'string', description: 'The rev this edit was reasoned against.' },
-  patch_id: { type: 'string', description: 'Caller-chosen; the same id twice applies once.' },
-  args: { type: 'object', description: 'The op arguments.' },
+  patch_id: {
+    type: 'string',
+    description: 'Caller-chosen. The same id on the same tool applies once; reuse it to retry.',
+  },
 };
 
 export function toolsFor({ store, root, autonomous }) {
@@ -103,7 +169,7 @@ export function toolsFor({ store, root, autonomous }) {
   );
 
   const dryRun = async ({ handle, base_rev: baseRev, patch_id: patchId }, envelope) => {
-    const remembered = store.remembered(handle, patchId);
+    const remembered = store.remembered(handle, envelope.op, patchId);
     if (remembered) return remembered;
 
     store.requireHead(handle, baseRev);
@@ -111,7 +177,7 @@ export function toolsFor({ store, root, autonomous }) {
     const result = await propose(document, envelope.plan);
     const rev = await store.candidate(handle, result.xml, { risk: envelope.risk, ok: result.ok });
 
-    return store.remember(handle, patchId, {
+    return store.remember(handle, envelope.op, patchId, {
       rev,
       op: envelope.op,
       risk: envelope.risk,
@@ -129,7 +195,7 @@ export function toolsFor({ store, root, autonomous }) {
     add(
       name,
       `Propose a ${name} edit. Nothing is written: the result carries the plan, its exact inverse, the computed risk, every gate and the measured diff. Publish the returned rev to make it real.`,
-      object(MUTATING, ['handle', 'base_rev', 'patch_id', 'args']),
+      object({ ...MUTATING, args: ARGS[name] }, ['handle', 'base_rev', 'patch_id', 'args']),
       async (input) => {
         const { document } = store.head(input.handle);
         return dryRun(input, op(project(document.definitions), input.args));
@@ -168,7 +234,7 @@ export function toolsFor({ store, root, autonomous }) {
       ['handle', 'rev', 'patch_id'],
     ),
     async ({ handle, rev, patch_id: patchId }) => {
-      const remembered = store.remembered(handle, patchId);
+      const remembered = store.remembered(handle, 'publish', patchId);
       if (remembered) return remembered;
 
       const { xml, path, proposal } = store.revision(handle, rev);
@@ -182,7 +248,7 @@ export function toolsFor({ store, root, autonomous }) {
 
       await writeBpmnAtomic(path, xml, { root });
       store.promote(handle, rev);
-      return store.remember(handle, patchId, { rev, published: true, risk: proposal.risk });
+      return store.remember(handle, 'publish', patchId, { rev, published: true, risk: proposal.risk });
     },
   );
 

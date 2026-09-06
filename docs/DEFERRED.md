@@ -60,17 +60,14 @@ shifted to make room stay shifted; until a geometric undo exists, `git checkout`
 **Trigger:** plan-level placement (PR-06). `placePlan` re-routes every edge whose source or target
 was placed or shifted, and records the pre-shift bounds so the inverse can restore them.
 
-## A bench cell that is actually isolated
+## The bake-off itself
 
-`run.mjs` sets `settingSources: []` and a per-cell `CLAUDE_CONFIG_DIR`, and neither keeps the host
-machine out: F14 measured 16 skills, 48 slash commands and 5 agents leaking into a cell. The MCP
-tools also never reach the agent's context despite three documented `alwaysLoad` paths.
+The harness works and one calibration cell has been run per arm. The twenty tasks have never been
+run, so F11 does not exist and nothing may be said about which arm is more correct.
 
-**Ceiling:** every number this harness can currently produce is about the harness. `replay.mjs`
-marks a cell that never reached its arm's tools as `HARNESS`, so the failure is visible rather
-than silent, but the other arms are equally contaminated and nothing detects that.
+**Ceiling:** the only measured numbers are a budget calibration (F14), from N=1 on one task. They
+cannot distinguish a result from variance and no percentage may be quoted from them.
 
-**Trigger:** before any paid run beyond a debugging cell, and before F11 can exist. Either find the
-SDK-level isolation that works — the agent-sdk changelog and issues are the place to look, and the
-version should be re-pinned when it does — or drive the CLI directly with `--print
---output-format json` from an environment built for the purpose.
+**Trigger:** a full run — 20 tasks × 3 arms × N≥3 — with the per-cell budget measured by stratum
+rather than guessed. The prompts should be replaced first, or F11 has to carry the provenance
+caveat in `bench/tasks/TASKS.md`.

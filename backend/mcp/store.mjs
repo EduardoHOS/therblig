@@ -51,12 +51,12 @@ export function createStore({ root }) {
 
     // Without protocol resumability a dropped stream means the client re-issues the call, so a
     // mutating tool that is not idempotent double-applies the edit.
-    remembered(handle, patchId) {
-      return find(handle).results.get(patchId);
+    remembered(handle, tool, patchId) {
+      return find(handle).results.get(`${tool}:${patchId}`);
     },
 
-    remember(handle, patchId, result) {
-      find(handle).results.set(patchId, result);
+    remember(handle, tool, patchId, result) {
+      find(handle).results.set(`${tool}:${patchId}`, result);
       return result;
     },
 

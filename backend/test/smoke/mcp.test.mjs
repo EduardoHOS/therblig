@@ -299,3 +299,58 @@ test('stdout carries protocol and nothing else; logs go to stderr', async () => 
     mcp.close();
   }
 });
+
+// Found by the first valid bench cell: an agent retried bypass three times under one patch_id,
+// guessing argument names, and then called publish with that same id. publish found the bypass
+// result in the cache, returned it as its own, wrote nothing, and the agent believed it was done.
+test('a patch_id is remembered per tool, so reusing one across tools cannot publish nothing', async () => {
+  const cwd = await workspace();
+  const mcp = client(cwd);
+  try {
+    const { data: opened } = await mcp.call('open', { path: 'p.bpmn' });
+    const { data: proposed } = await mcp.call('rename', {
+      handle: opened.handle,
+      base_rev: opened.rev,
+      patch_id: 'same',
+      args: { id: 'Charge', name: 'Charge the card' },
+    });
+
+    const published = await mcp.call('publish', {
+      handle: opened.handle,
+      rev: proposed.rev,
+      patch_id: 'same',
+    });
+
+    assert.equal(published.isError, false);
+    assert.equal(published.data.published, true, 'publish must publish, not echo the proposal');
+    assert.match(await readFile(join(cwd, 'p.bpmn'), 'utf8'), /name="Charge the card"/);
+  } finally {
+    mcp.close();
+  }
+});
+
+// Also from that cell: the agent could not know an op's argument names, because the tool declared
+// only `args: object`. Each op now carries the real shape.
+test('every op declares the arguments it takes, so the model does not have to guess', async () => {
+  const cwd = await workspace();
+  const mcp = client(cwd);
+  try {
+    const { result } = await mcp.list();
+    const shapes = Object.fromEntries(result.tools.map((tool) => [tool.name, tool.inputSchema]));
+
+    const argsOf = (name) => shapes[name].properties.args;
+    assert.deepEqual(Object.keys(argsOf('bypass').properties), ['id']);
+    assert.deepEqual(argsOf('bypass').required, ['id']);
+    assert.deepEqual(Object.keys(argsOf('timeout').properties).sort(), ['after', 'name', 'on', 'to']);
+    assert.deepEqual(argsOf('timeout').required.sort(), ['after', 'on', 'to']);
+    assert.deepEqual(Object.keys(argsOf('guard').properties).sort(), ['default', 'flow', 'if']);
+    assert.equal(argsOf('insertAfter').properties.step.type, 'object');
+    assert.equal(argsOf('parallel').properties.branches.type, 'array');
+
+    for (const name of ['bypass', 'timeout', 'rename', 'guard', 'message', 'branch', 'parallel']) {
+      assert.equal(argsOf(name).additionalProperties, false, `${name} accepts unknown arguments`);
+    }
+  } finally {
+    mcp.close();
+  }
+});

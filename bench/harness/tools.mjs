@@ -28,7 +28,7 @@ function zodFor(schema) {
               Object.entries(schema.properties).map(([key, value]) => [key, zodFor(value)]),
             ),
           )
-        : z.record(z.string(), z.unknown());
+        : z.looseObject({});
     default:
       throw new Error(`No Zod equivalent for schema type "${schema.type}"`);
   }
@@ -43,9 +43,12 @@ function shapeFor({ properties, required = [] }) {
   );
 }
 
-export function treadleServer({ root, autonomous }) {
+export function treadleServer({ root, autonomous, only }) {
   const store = createStore({ root });
-  const tools = toolsFor({ store, root, autonomous }).map((definition) =>
+  const chosen = toolsFor({ store, root, autonomous }).filter(
+    (definition) => !only || only.includes(definition.name),
+  );
+  const tools = chosen.map((definition) =>
     tool(
       definition.name,
       definition.description,

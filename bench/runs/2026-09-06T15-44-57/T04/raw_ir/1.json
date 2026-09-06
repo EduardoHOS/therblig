@@ -1,0 +1,239 @@
+{
+ "task": "T04",
+ "arm": "raw_ir",
+ "run": 1,
+ "file": "miwg/C.9.0.bpmn",
+ "prompt": "Drop the step that sends the rejection — rejecting the application is enough on its own.",
+ "model": "claude-opus-5",
+ "effort": "high",
+ "sdk": "0.3.263",
+ "subtype": "success",
+ "crash": null,
+ "cost_usd": 0.7549472500000001,
+ "turns": 11,
+ "session": "5579b66a-a4ea-4f37-b878-1071b1aafc20",
+ "calls": [
+  {
+   "at": 1788709557260,
+   "event": "PreToolUse",
+   "tool": "mcp__treadle__open",
+   "input": {
+    "path": "C.9.0.bpmn"
+   },
+   "toolUseID": "toolu_01DrDeBaz35DDgsXxDczr5FM"
+  },
+  {
+   "at": 1788709557294,
+   "event": "PostToolUse",
+   "tool": "mcp__treadle__open",
+   "input": {
+    "path": "C.9.0.bpmn"
+   },
+   "toolUseID": "toolu_01DrDeBaz35DDgsXxDczr5FM"
+  },
+  {
+   "at": 1788709560417,
+   "event": "PreToolUse",
+   "tool": "mcp__treadle__project",
+   "input": {
+    "handle": "e1bd29b3-2a55-4dd5-a404-b9c7f2424d6f"
+   },
+   "toolUseID": "toolu_01XKuv9e2YXCymB5S7v87npr"
+  },
+  {
+   "at": 1788709560425,
+   "event": "PostToolUse",
+   "tool": "mcp__treadle__project",
+   "input": {
+    "handle": "e1bd29b3-2a55-4dd5-a404-b9c7f2424d6f"
+   },
+   "toolUseID": "toolu_01XKuv9e2YXCymB5S7v87npr"
+  },
+  {
+   "at": 1788709566590,
+   "event": "PreToolUse",
+   "tool": "Read",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn"
+   },
+   "toolUseID": "toolu_01VgCqtNkN7Pec95bqTgSidV"
+  },
+  {
+   "at": 1788709566794,
+   "event": "PostToolUse",
+   "tool": "Read",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn"
+   },
+   "toolUseID": "toolu_01VgCqtNkN7Pec95bqTgSidV"
+  },
+  {
+   "at": 1788709575692,
+   "event": "PreToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "    <bpmn2:sequenceFlow id=\"SequenceFlow_01vh1zw\" sourceRef=\"ServiceTask_RejectPolicy\" targetRef=\"SendTask_SendRejection\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_13\" name=\"\" sourceRef=\"SendTask_SendRejection\" targetRef=\"EndEvent_ApplicationRejected\" />\n",
+    "new_string": "    <bpmn2:sequenceFlow id=\"SequenceFlow_01vh1zw\" sourceRef=\"ServiceTask_RejectPolicy\" targetRef=\"EndEvent_ApplicationRejected\" />\n",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01QWjeHki68ACGCP68X75LNp"
+  },
+  {
+   "at": 1788709575709,
+   "event": "PostToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "    <bpmn2:sequenceFlow id=\"SequenceFlow_01vh1zw\" sourceRef=\"ServiceTask_RejectPolicy\" targetRef=\"SendTask_SendRejection\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_13\" name=\"\" sourceRef=\"SendTask_SendRejection\" targetRef=\"EndEvent_ApplicationRejected\" />\n",
+    "new_string": "    <bpmn2:sequenceFlow id=\"SequenceFlow_01vh1zw\" sourceRef=\"ServiceTask_RejectPolicy\" targetRef=\"EndEvent_ApplicationRejected\" />\n",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01QWjeHki68ACGCP68X75LNp"
+  },
+  {
+   "at": 1788709579430,
+   "event": "PreToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "      <bpmn2:incoming>SequenceFlow_13</bpmn2:incoming>\n    </bpmn2:endEvent>",
+    "new_string": "      <bpmn2:incoming>SequenceFlow_01vh1zw</bpmn2:incoming>\n    </bpmn2:endEvent>",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01HoXyAdC8UDf26spPiScPpQ"
+  },
+  {
+   "at": 1788709579439,
+   "event": "PostToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "      <bpmn2:incoming>SequenceFlow_13</bpmn2:incoming>\n    </bpmn2:endEvent>",
+    "new_string": "      <bpmn2:incoming>SequenceFlow_01vh1zw</bpmn2:incoming>\n    </bpmn2:endEvent>",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01HoXyAdC8UDf26spPiScPpQ"
+  },
+  {
+   "at": 1788709598062,
+   "event": "PreToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "    <bpmn2:serviceTask id=\"SendTask_SendRejection\" name=\"Send rejection\" zeebe:modelerTemplate=\"io.camunda.connectors.SendGrid.v1.template\" zeebe:modelerTemplateIcon=\"data:image/svg+xml;utf8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Cpath%20d%3D%22M0.285706%205.40847H5.43837V10.5611H0.285706V5.40847Z%22%20fill%3D%22white%22%2F%3E%0A%3Cpath%20d%3D%22M0.285706%205.40847H5.43837V10.5611H0.285706V5.40847Z%22%20fill%3D%22%2399E1F4%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V15.6844H5.43837V10.5611Z%22%20fill%3D%22white%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V15.6844H5.43837V10.5611Z%22%20fill%3D%22%2399E1F4%22%2F%3E%0A%3Cpath%20d%3D%22M0.285706%2015.6846L5.43837%2015.6844V15.7143H0.285706V15.6846ZM0.285706%2010.5619H5.43837V15.6844L0.285706%2015.6846V10.5619Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%200.285706H10.5611V5.40847H5.43837V0.285706ZM10.5616%205.43837H15.7143V10.5611H10.5616V5.43837Z%22%20fill%3D%22%2300B3E3%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V5.40847H5.43837V10.5611Z%22%20fill%3D%22%23009DD9%22%2F%3E%0A%3Cpath%20d%3D%22M10.5611%200.285706H15.7143V5.40847H10.5611V0.285706Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3Cpath%20d%3D%22M10.5611%205.40847H15.7143V5.43837H10.5616L10.5611%205.40847Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3C%2Fsvg%3E\">\n      <bpmn2:extensionElements>\n        <zeebe:ioMapping>\n          <zeebe:input source=\"secrets.SENDGRID_DEMO\" target=\"apiKey\" />\n          <zeebe:input source=\"demo@camunda.com\" target=\"from.email\" />\n          <zeebe:input source=\"d-aa6a58aaded54a83884518433ac2dd56\" target=\"template.id\" />\n          <zeebe:input source=\"= {&#10;    &#34;name&#34;: applicant.name&#10;}\" target=\"template.data\" />\n          <zeebe:input source=\"= applicant.email\" target=\"to.email\" />\n          <zeebe:input source=\"= applicant.name\" target=\"to.name\" />\n          <zeebe:input source=\"= corporation\" target=\"from.name\" />\n        </zeebe:ioMapping>\n        <zeebe:taskDefinition type=\"io.camunda:sendgrid:1\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_01vh1zw</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_13</bpmn2:outgoing>\n    </bpmn2:serviceTask>\n",
+    "new_string": "",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01EaKd1BTEwPmGnTtdRqi5AP"
+  },
+  {
+   "at": 1788709598076,
+   "event": "PostToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "    <bpmn2:serviceTask id=\"SendTask_SendRejection\" name=\"Send rejection\" zeebe:modelerTemplate=\"io.camunda.connectors.SendGrid.v1.template\" zeebe:modelerTemplateIcon=\"data:image/svg+xml;utf8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Cpath%20d%3D%22M0.285706%205.40847H5.43837V10.5611H0.285706V5.40847Z%22%20fill%3D%22white%22%2F%3E%0A%3Cpath%20d%3D%22M0.285706%205.40847H5.43837V10.5611H0.285706V5.40847Z%22%20fill%3D%22%2399E1F4%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V15.6844H5.43837V10.5611Z%22%20fill%3D%22white%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V15.6844H5.43837V10.5611Z%22%20fill%3D%22%2399E1F4%22%2F%3E%0A%3Cpath%20d%3D%22M0.285706%2015.6846L5.43837%2015.6844V15.7143H0.285706V15.6846ZM0.285706%2010.5619H5.43837V15.6844L0.285706%2015.6846V10.5619Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%200.285706H10.5611V5.40847H5.43837V0.285706ZM10.5616%205.43837H15.7143V10.5611H10.5616V5.43837Z%22%20fill%3D%22%2300B3E3%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V5.40847H5.43837V10.5611Z%22%20fill%3D%22%23009DD9%22%2F%3E%0A%3Cpath%20d%3D%22M10.5611%200.285706H15.7143V5.40847H10.5611V0.285706Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3Cpath%20d%3D%22M10.5611%205.40847H15.7143V5.43837H10.5616L10.5611%205.40847Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3C%2Fsvg%3E\">\n      <bpmn2:extensionElements>\n        <zeebe:ioMapping>\n          <zeebe:input source=\"secrets.SENDGRID_DEMO\" target=\"apiKey\" />\n          <zeebe:input source=\"demo@camunda.com\" target=\"from.email\" />\n          <zeebe:input source=\"d-aa6a58aaded54a83884518433ac2dd56\" target=\"template.id\" />\n          <zeebe:input source=\"= {&#10;    &#34;name&#34;: applicant.name&#10;}\" target=\"template.data\" />\n          <zeebe:input source=\"= applicant.email\" target=\"to.email\" />\n          <zeebe:input source=\"= applicant.name\" target=\"to.name\" />\n          <zeebe:input source=\"= corporation\" target=\"from.name\" />\n        </zeebe:ioMapping>\n        <zeebe:taskDefinition type=\"io.camunda:sendgrid:1\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_01vh1zw</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_13</bpmn2:outgoing>\n    </bpmn2:serviceTask>\n",
+    "new_string": "",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01EaKd1BTEwPmGnTtdRqi5AP"
+  },
+  {
+   "at": 1788709602689,
+   "event": "PreToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "      <bpmndi:BPMNShape id=\"Activity_04dzezq_di\" bpmnElement=\"SendTask_SendRejection\">\n        <dc:Bounds x=\"1400\" y=\"494\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n",
+    "new_string": "",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01WChTZfHTrAFGzTKNDoqnwJ"
+  },
+  {
+   "at": 1788709602696,
+   "event": "PostToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "      <bpmndi:BPMNShape id=\"Activity_04dzezq_di\" bpmnElement=\"SendTask_SendRejection\">\n        <dc:Bounds x=\"1400\" y=\"494\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n",
+    "new_string": "",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_01WChTZfHTrAFGzTKNDoqnwJ"
+  },
+  {
+   "at": 1788709610676,
+   "event": "PreToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "      <bpmndi:BPMNEdge id=\"SequenceFlow_01vh1zw_di\" bpmnElement=\"SequenceFlow_01vh1zw\">\n        <di:waypoint x=\"1349\" y=\"534\" />\n        <di:waypoint x=\"1400\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1009\" y=\"564\" width=\"90\" height=\"20\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_13\" bpmnElement=\"SequenceFlow_13\" sourceElement=\"Activity_04dzezq_di\" targetElement=\"_BPMNShape_EndEvent_3\">\n        <di:waypoint x=\"1500\" y=\"534\" />\n        <di:waypoint x=\"1555\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1054\" y=\"575\" width=\"90\" height=\"6\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n",
+    "new_string": "      <bpmndi:BPMNEdge id=\"SequenceFlow_01vh1zw_di\" bpmnElement=\"SequenceFlow_01vh1zw\">\n        <di:waypoint x=\"1349\" y=\"534\" />\n        <di:waypoint x=\"1555\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1009\" y=\"564\" width=\"90\" height=\"20\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_012zE11bpnZPZjoB6BezRpK8"
+  },
+  {
+   "at": 1788709610688,
+   "event": "PostToolUse",
+   "tool": "Edit",
+   "input": {
+    "file_path": "/private/var/folders/61/z0183q4x5pd1yhhk2gs0hs3m0000gn/T/treadle-cell-kFCG5z/C.9.0.bpmn",
+    "old_string": "      <bpmndi:BPMNEdge id=\"SequenceFlow_01vh1zw_di\" bpmnElement=\"SequenceFlow_01vh1zw\">\n        <di:waypoint x=\"1349\" y=\"534\" />\n        <di:waypoint x=\"1400\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1009\" y=\"564\" width=\"90\" height=\"20\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_13\" bpmnElement=\"SequenceFlow_13\" sourceElement=\"Activity_04dzezq_di\" targetElement=\"_BPMNShape_EndEvent_3\">\n        <di:waypoint x=\"1500\" y=\"534\" />\n        <di:waypoint x=\"1555\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1054\" y=\"575\" width=\"90\" height=\"6\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n",
+    "new_string": "      <bpmndi:BPMNEdge id=\"SequenceFlow_01vh1zw_di\" bpmnElement=\"SequenceFlow_01vh1zw\">\n        <di:waypoint x=\"1349\" y=\"534\" />\n        <di:waypoint x=\"1555\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1009\" y=\"564\" width=\"90\" height=\"20\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n",
+    "replace_all": false
+   },
+   "toolUseID": "toolu_012zE11bpnZPZjoB6BezRpK8"
+  },
+  {
+   "at": 1788709613032,
+   "event": "PreToolUse",
+   "tool": "mcp__treadle__open",
+   "input": {
+    "path": "C.9.0.bpmn"
+   },
+   "toolUseID": "toolu_01QBFH8xTNruBSM7jW7Fthjt"
+  },
+  {
+   "at": 1788709613043,
+   "event": "PostToolUse",
+   "tool": "mcp__treadle__open",
+   "input": {
+    "path": "C.9.0.bpmn"
+   },
+   "toolUseID": "toolu_01QBFH8xTNruBSM7jW7Fthjt"
+  },
+  {
+   "at": 1788709615537,
+   "event": "PreToolUse",
+   "tool": "mcp__treadle__lint",
+   "input": {
+    "handle": "94eb2df1-b141-498c-b5c5-10ad1f0e6741"
+   },
+   "toolUseID": "toolu_016PnP3HApdJGiQ7SnmRyVzt"
+  },
+  {
+   "at": 1788709615611,
+   "event": "PostToolUse",
+   "tool": "mcp__treadle__lint",
+   "input": {
+    "handle": "94eb2df1-b141-498c-b5c5-10ad1f0e6741"
+   },
+   "toolUseID": "toolu_016PnP3HApdJGiQ7SnmRyVzt"
+  }
+ ],
+ "armTools": [
+  "Read",
+  "Edit",
+  "Write",
+  "Glob",
+  "Grep",
+  "mcp__treadle__open",
+  "mcp__treadle__project",
+  "mcp__treadle__explain",
+  "mcp__treadle__lint"
+ ],
+ "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<bpmn2:definitions xmlns:bpmn2=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\" xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\" xmlns:zeebe=\"http://camunda.org/schema/zeebe/1.0\" xmlns:modeler=\"http://camunda.org/schema/modeler/1.0\" xmlns:camunda=\"http://camunda.org/schema/1.0/bpmn\" id=\"_5SVkEIXnEeSmwfgVk-ryvQ\" targetNamespace=\"http://camunda.org/schema/1.0/bpmn\" exporter=\"Camunda Web Modeler\" exporterVersion=\"3cd8340\" modeler:executionPlatform=\"Camunda Cloud\" modeler:executionPlatformVersion=\"8.1.0\" xsi:schemaLocation=\"http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd\" camunda:diagramRelationId=\"8dc12e9b-19d8-4ead-b538-41e8a4a9b4b2\">\n  <bpmn2:import namespace=\"http://bpmn.io/schema/bpmn/Definitions_1\" location=\"C.9.1.bpmn\" importType=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"/>\n  <bpmn2:collaboration id=\"Collaboration_CustomerOnboarding\">\n    <bpmn2:participant id=\"Participant_00\" name=\"Customer Onboarding\" processRef=\"customer_onboarding_en\" />\n  </bpmn2:collaboration>\n  <bpmn2:process id=\"customer_onboarding_en\" name=\"Customer Onboarding\" isExecutable=\"true\">\n    <bpmn2:extensionElements>\n      <zeebe:userTaskForm id=\"userTaskForm_0khiqpl\">{\n  \"components\": [\n    {\n      \"text\": \"&lt;img src=\\\"http://localhost:8080/camunda/online/banking/img/core-img/logo.png\\\"&gt;&lt;h2&gt;Instructions:&lt;/h2&gt;&lt;p&gt;Based on internal protocal and the given information below, tick the checkbox for 'Approved' if this application should be approved.&lt;/p&gt;&lt;p&gt; Otherwise, leave this checkbox blank.&lt;/p&gt;\",\n      \"type\": \"text\",\n      \"id\": \"Field_0e9521u\"\n    },\n    {\n      \"key\": \"applicationNumber\",\n      \"label\": \"Application Number\",\n      \"type\": \"textfield\",\n      \"id\": \"Field_1djmro0\"\n    },\n    {\n      \"key\": \"applicantName\",\n      \"label\": \"Applicant\",\n      \"type\": \"textfield\",\n      \"id\": \"Field_1ex9187\"\n    },\n    {\n      \"key\": \"age\",\n      \"label\": \"Current Age\",\n      \"type\": \"number\",\n      \"id\": \"Field_17vnd80\"\n    },\n    {\n      \"key\": \"employment\",\n      \"label\": \"Employment\",\n      \"type\": \"textfield\",\n      \"id\": \"Field_08mj5fv\"\n    },\n    {\n      \"key\": \"category\",\n      \"label\": \"Category\",\n      \"type\": \"textfield\",\n      \"id\": \"Field_1k7e84u\"\n    },\n    {\n      \"key\": \"priceIndication\",\n      \"label\": \"Price indication\",\n      \"type\": \"textfield\",\n      \"id\": \"Field_1d6bhc2\"\n    },\n    {\n      \"label\": \"Risks\",\n      \"type\": \"textfield\",\n      \"id\": \"Field_0qvctdt\",\n      \"key\": \"risksText\",\n      \"disabled\": true\n    },\n    {\n      \"key\": \"approved\",\n      \"label\": \"Approved\",\n      \"type\": \"checkbox\",\n      \"id\": \"Field_0hwfap9\"\n    }\n  ],\n  \"schemaVersion\": 4,\n  \"type\": \"default\",\n  \"id\": \"Form_0840o2b\",\n  \"executionPlatform\": \"Camunda Cloud\",\n  \"executionPlatformVersion\": \"1.1\",\n  \"exporter\": {\n    \"name\": \"Camunda Modeler\",\n    \"version\": \"5.0.0\"\n  }\n}</zeebe:userTaskForm>\n    </bpmn2:extensionElements>\n    <bpmn2:startEvent id=\"StartEvent_ApplicationReceived\" name=\"Application received\">\n      <bpmn2:extensionElements>\n        <zeebe:ioMapping>\n          <zeebe:output source=\"= string(now())\" target=\"documentReferenceId\" />\n        </zeebe:ioMapping>\n      </bpmn2:extensionElements>\n      <bpmn2:outgoing>SequenceFlow_6</bpmn2:outgoing>\n    </bpmn2:startEvent>\n    <bpmn2:sequenceFlow id=\"SequenceFlow_1gd6p37\" sourceRef=\"ServiceTask_GetCreditScore\" targetRef=\"BusinessRuleTask_CheckApplicationAutomatically\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_01vh1zw\" sourceRef=\"ServiceTask_RejectPolicy\" targetRef=\"EndEvent_ApplicationRejected\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_Red\" name=\"Red (severe risk)\" sourceRef=\"ExclusiveGateway_Risk\" targetRef=\"ServiceTask_RejectPolicy\">\n      <bpmn2:documentation>Automatic rejection -severe risk</bpmn2:documentation>\n      <bpmn2:conditionExpression xsi:type=\"bpmn2:tFormalExpression\">= some risk in riskLevels satisfies risk = \"red\"</bpmn2:conditionExpression>\n    </bpmn2:sequenceFlow>\n    <bpmn2:sequenceFlow id=\"SequenceFlow_2\" name=\"\" sourceRef=\"BusinessRuleTask_CheckApplicationAutomatically\" targetRef=\"ExclusiveGateway_Risk\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_Green\" name=\"Green (no risk)\" sourceRef=\"ExclusiveGateway_Risk\" targetRef=\"ServiceTask_DeliverPolicy\">\n      <bpmn2:documentation>Automatic approval - no risk</bpmn2:documentation>\n    </bpmn2:sequenceFlow>\n    <bpmn2:sequenceFlow id=\"SequenceFlow_10\" name=\"\" sourceRef=\"ServiceTask_DeliverPolicy\" targetRef=\"SendTask_SendPolicy\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_11\" name=\"\" sourceRef=\"SendTask_SendPolicy\" targetRef=\"EndEvent_ApplicationIssued\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_ApplicationAccepted\" name=\"Application accepted\" sourceRef=\"ExclusiveGateway_Decision\" targetRef=\"ServiceTask_DeliverPolicy\">\n      <bpmn2:conditionExpression xsi:type=\"bpmn2:tFormalExpression\">= approved </bpmn2:conditionExpression>\n    </bpmn2:sequenceFlow>\n    <bpmn2:sequenceFlow id=\"SequenceFlow_ApplicationDeclined\" name=\"Application declined\" sourceRef=\"ExclusiveGateway_Decision\" targetRef=\"ServiceTask_RejectPolicy\">\n      <bpmn2:conditionExpression xsi:type=\"bpmn2:tFormalExpression\">= not(approved)</bpmn2:conditionExpression>\n    </bpmn2:sequenceFlow>\n    <bpmn2:sequenceFlow id=\"SequenceFlow_6\" name=\"\" sourceRef=\"StartEvent_ApplicationReceived\" targetRef=\"ServiceTask_GetCreditScore\" />\n    <bpmn2:sequenceFlow id=\"SequenceFlow_Yellow\" name=\"Yellow (moderate risk)\" sourceRef=\"ExclusiveGateway_Risk\" targetRef=\"Activity_ManualCheck\">\n      <bpmn2:documentation>Manual check - moderate risk</bpmn2:documentation>\n      <bpmn2:conditionExpression xsi:type=\"bpmn2:tFormalExpression\">= every risk in riskLevels satisfies risk = \"yellow\"</bpmn2:conditionExpression>\n    </bpmn2:sequenceFlow>\n    <bpmn2:sequenceFlow id=\"Flow_0ik8h65\" sourceRef=\"Activity_ManualCheck\" targetRef=\"ExclusiveGateway_Decision\" />\n    <bpmn2:sequenceFlow id=\"Flow_177paze\" sourceRef=\"ErrorBoundaryEvent_FraudDetected\" targetRef=\"SendTask_ReportFraud\" />\n    <bpmn2:sequenceFlow id=\"Flow_0cvhizd\" sourceRef=\"SendTask_ReportFraud\" targetRef=\"TerminateEvent_ApplicationCanceledFraud\" />\n    <bpmn2:subProcess id=\"Activity_1ke2ixr\" triggeredByEvent=\"true\">\n      <bpmn2:endEvent id=\"EndMessageEvent_Timeout\" name=\"Timeout handled\">\n        <bpmn2:documentation>Ends the subprocess and send message timeout handled</bpmn2:documentation>\n        <bpmn2:extensionElements>\n          <zeebe:taskDefinition type=\"timeoutHandled\" />\n        </bpmn2:extensionElements>\n        <bpmn2:incoming>Flow_0dppbeu</bpmn2:incoming>\n        <bpmn2:messageEventDefinition id=\"MessageEventDefinition_0tax7tp\" />\n      </bpmn2:endEvent>\n      <bpmn2:sequenceFlow id=\"Flow_151qlxc\" sourceRef=\"StartErrorEvent_Timeout\" targetRef=\"UserTask_HandleTimeout\" />\n      <bpmn2:sequenceFlow id=\"Flow_0dppbeu\" sourceRef=\"UserTask_HandleTimeout\" targetRef=\"EndMessageEvent_Timeout\" />\n      <bpmn2:startEvent id=\"StartErrorEvent_Timeout\" name=\"Timeout\">\n        <bpmn2:documentation>Catches timeout error event and starts the subprocess</bpmn2:documentation>\n        <bpmn2:outgoing>Flow_151qlxc</bpmn2:outgoing>\n        <bpmn2:errorEventDefinition id=\"ErrorEventDefinition_0ra1xn3\" errorRef=\"Error_1u68flh\" />\n      </bpmn2:startEvent>\n      <bpmn2:userTask id=\"UserTask_HandleTimeout\" name=\"Handle Timeout\">\n        <bpmn2:documentation>Manually handles the timeout</bpmn2:documentation>\n        <bpmn2:incoming>Flow_151qlxc</bpmn2:incoming>\n        <bpmn2:outgoing>Flow_0dppbeu</bpmn2:outgoing>\n      </bpmn2:userTask>\n    </bpmn2:subProcess>\n    <bpmn2:subProcess id=\"Activity_0vp33kx\" triggeredByEvent=\"true\">\n      <bpmn2:startEvent id=\"StartMessageEvent_CancellationRequested\" name=\"Cancelation requested\">\n        <bpmn2:documentation>Customer onboarding cancellation message received</bpmn2:documentation>\n        <bpmn2:outgoing>Flow_12nmks0</bpmn2:outgoing>\n        <bpmn2:messageEventDefinition id=\"MessageEventDefinition_0tj9nv6\" messageRef=\"Message_0dm6uaq\" />\n      </bpmn2:startEvent>\n      <bpmn2:sequenceFlow id=\"Flow_12nmks0\" sourceRef=\"StartMessageEvent_CancellationRequested\" targetRef=\"ServiceTask_CancelApplication\" />\n      <bpmn2:serviceTask id=\"ServiceTask_CancelApplication\" name=\"Cancel application\">\n        <bpmn2:documentation>Cancel application</bpmn2:documentation>\n        <bpmn2:extensionElements>\n          <zeebe:taskDefinition type=\"cancelApplication\" />\n        </bpmn2:extensionElements>\n        <bpmn2:incoming>Flow_12nmks0</bpmn2:incoming>\n        <bpmn2:outgoing>Flow_19iipc6</bpmn2:outgoing>\n      </bpmn2:serviceTask>\n      <bpmn2:sequenceFlow id=\"Flow_19iipc6\" sourceRef=\"ServiceTask_CancelApplication\" targetRef=\"ParallelGateway_CancelApplication\" />\n      <bpmn2:endEvent id=\"EndMessageEvent_InformCustomer\" name=\"Customer notified about successful cancelation\">\n        <bpmn2:documentation>Inform customer of a successful cancelation</bpmn2:documentation>\n        <bpmn2:extensionElements>\n          <zeebe:taskDefinition type=\"informCustomerSuccessfulCancelation\" />\n        </bpmn2:extensionElements>\n        <bpmn2:incoming>Flow_0qrakss</bpmn2:incoming>\n        <bpmn2:messageEventDefinition id=\"MessageEventDefinition_0j82oqj\" />\n      </bpmn2:endEvent>\n      <bpmn2:sequenceFlow id=\"Flow_0qrakss\" sourceRef=\"ParallelGateway_CancelApplication\" targetRef=\"EndMessageEvent_InformCustomer\" />\n      <bpmn2:parallelGateway id=\"ParallelGateway_CancelApplication\">\n        <bpmn2:incoming>Flow_19iipc6</bpmn2:incoming>\n        <bpmn2:outgoing>Flow_0qrakss</bpmn2:outgoing>\n        <bpmn2:outgoing>Flow_1jml1az</bpmn2:outgoing>\n      </bpmn2:parallelGateway>\n      <bpmn2:sequenceFlow id=\"Flow_1jml1az\" sourceRef=\"ParallelGateway_CancelApplication\" targetRef=\"EndMessageEvent_InformOperations\" />\n      <bpmn2:endEvent id=\"EndMessageEvent_InformOperations\" name=\"Operations Team notified about successful cancelation\">\n        <bpmn2:documentation>Inform operations team of a successful cancelation</bpmn2:documentation>\n        <bpmn2:extensionElements>\n          <zeebe:taskDefinition type=\"informOperationsSuccessfulCancelation\" />\n        </bpmn2:extensionElements>\n        <bpmn2:incoming>Flow_1jml1az</bpmn2:incoming>\n        <bpmn2:messageEventDefinition id=\"MessageEventDefinition_1qmp27r\" />\n      </bpmn2:endEvent>\n    </bpmn2:subProcess>\n    <bpmn2:callActivity id=\"Activity_ManualCheck\" name=\"Manual Check\" calledElement=\"ManualCheck\">\n      <bpmn2:extensionElements>\n        <zeebe:calledElement processId=\"ManualCheck\" propagateAllChildVariables=\"false\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_Yellow</bpmn2:incoming>\n      <bpmn2:outgoing>Flow_0ik8h65</bpmn2:outgoing>\n    </bpmn2:callActivity>\n    <bpmn2:endEvent id=\"EndEvent_ApplicationIssued\" name=\"Application&#10; issued\">\n      <bpmn2:documentation>Customer onboarding process end application issued</bpmn2:documentation>\n      <bpmn2:incoming>SequenceFlow_11</bpmn2:incoming>\n    </bpmn2:endEvent>\n    <bpmn2:serviceTask id=\"SendTask_SendPolicy\" name=\"Send confirmation\" zeebe:modelerTemplate=\"io.camunda.connectors.SendGrid.v1.template\" zeebe:modelerTemplateIcon=\"data:image/svg+xml;utf8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Cpath%20d%3D%22M0.285706%205.40847H5.43837V10.5611H0.285706V5.40847Z%22%20fill%3D%22white%22%2F%3E%0A%3Cpath%20d%3D%22M0.285706%205.40847H5.43837V10.5611H0.285706V5.40847Z%22%20fill%3D%22%2399E1F4%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V15.6844H5.43837V10.5611Z%22%20fill%3D%22white%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V15.6844H5.43837V10.5611Z%22%20fill%3D%22%2399E1F4%22%2F%3E%0A%3Cpath%20d%3D%22M0.285706%2015.6846L5.43837%2015.6844V15.7143H0.285706V15.6846ZM0.285706%2010.5619H5.43837V15.6844L0.285706%2015.6846V10.5619Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%200.285706H10.5611V5.40847H5.43837V0.285706ZM10.5616%205.43837H15.7143V10.5611H10.5616V5.43837Z%22%20fill%3D%22%2300B3E3%22%2F%3E%0A%3Cpath%20d%3D%22M5.43837%2010.5611L10.5611%2010.5616V5.40847H5.43837V10.5611Z%22%20fill%3D%22%23009DD9%22%2F%3E%0A%3Cpath%20d%3D%22M10.5611%200.285706H15.7143V5.40847H10.5611V0.285706Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3Cpath%20d%3D%22M10.5611%205.40847H15.7143V5.43837H10.5616L10.5611%205.40847Z%22%20fill%3D%22%231A82E2%22%2F%3E%0A%3C%2Fsvg%3E\">\n      <bpmn2:extensionElements>\n        <zeebe:taskDefinition type=\"io.camunda:sendgrid:1\" />\n        <zeebe:ioMapping>\n          <zeebe:input source=\"demo@camunda.com\" target=\"from.email\" />\n          <zeebe:input source=\"d-0d0120b0c7f148ef8a1c262f2cf07092\" target=\"template.id\" />\n          <zeebe:input source=\"secrets.SENDGRID_DEMO\" target=\"apiKey\" />\n          <zeebe:input source=\"= corporation\" target=\"from.name\" />\n          <zeebe:input source=\"= applicant.name\" target=\"to.name\" />\n          <zeebe:input source=\"= applicant.email\" target=\"to.email\" />\n          <zeebe:input source=\"= {&#10;    &#34;name&#34;: applicant.name,&#10;    &#34;applicationNumber&#34;: applicationNumber,&#10;    &#34;product&#34;: product&#10;}\" target=\"template.data\" />\n        </zeebe:ioMapping>\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_10</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_11</bpmn2:outgoing>\n    </bpmn2:serviceTask>\n    <bpmn2:serviceTask id=\"ServiceTask_DeliverPolicy\" name=\"Deliver confirmation\">\n      <bpmn2:documentation>Deliver policy</bpmn2:documentation>\n      <bpmn2:extensionElements>\n        <zeebe:taskDefinition type=\"issuePolicy\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_ApplicationAccepted</bpmn2:incoming>\n      <bpmn2:incoming>SequenceFlow_Green</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_10</bpmn2:outgoing>\n    </bpmn2:serviceTask>\n    <bpmn2:exclusiveGateway id=\"ExclusiveGateway_Decision\" name=\"Decision?\">\n      <bpmn2:incoming>Flow_0ik8h65</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_ApplicationAccepted</bpmn2:outgoing>\n      <bpmn2:outgoing>SequenceFlow_ApplicationDeclined</bpmn2:outgoing>\n    </bpmn2:exclusiveGateway>\n    <bpmn2:endEvent id=\"EndEvent_ApplicationRejected\" name=\"Application &#10;rejected\">\n      <bpmn2:documentation>Customer onboarding process end application rejected</bpmn2:documentation>\n      <bpmn2:incoming>SequenceFlow_01vh1zw</bpmn2:incoming>\n    </bpmn2:endEvent>\n    <bpmn2:serviceTask id=\"ServiceTask_RejectPolicy\" name=\"Reject application\">\n      <bpmn2:documentation>Reject policy</bpmn2:documentation>\n      <bpmn2:extensionElements>\n        <zeebe:taskDefinition type=\"rejectPolicy\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_ApplicationDeclined</bpmn2:incoming>\n      <bpmn2:incoming>SequenceFlow_Red</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_01vh1zw</bpmn2:outgoing>\n    </bpmn2:serviceTask>\n    <bpmn2:boundaryEvent id=\"ErrorBoundaryEvent_FraudDetected\" name=\"Fraud detected\" attachedToRef=\"Activity_ManualCheck\">\n      <bpmn2:documentation>Captures error if fraud is detected</bpmn2:documentation>\n      <bpmn2:outgoing>Flow_177paze</bpmn2:outgoing>\n      <bpmn2:errorEventDefinition id=\"ErrorEventDefinition_1ylbfzv\" errorRef=\"Error_01bezxs\" />\n    </bpmn2:boundaryEvent>\n    <bpmn2:sendTask id=\"SendTask_ReportFraud\" name=\"Report fraud\">\n      <bpmn2:extensionElements>\n        <zeebe:taskDefinition type=\"reportFraud\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>Flow_177paze</bpmn2:incoming>\n      <bpmn2:outgoing>Flow_0cvhizd</bpmn2:outgoing>\n    </bpmn2:sendTask>\n    <bpmn2:endEvent id=\"TerminateEvent_ApplicationCanceledFraud\" name=\"Application canceled due to fraud\">\n      <bpmn2:documentation>Customer onboarding process terminated due to fraud</bpmn2:documentation>\n      <bpmn2:incoming>Flow_0cvhizd</bpmn2:incoming>\n      <bpmn2:terminateEventDefinition id=\"TerminateEventDefinition_1am7et0\" />\n    </bpmn2:endEvent>\n    <bpmn2:exclusiveGateway id=\"ExclusiveGateway_Risk\" name=\"Risk?\" default=\"SequenceFlow_Green\">\n      <bpmn2:documentation>Route process based on risk, \"green\" automatic onboarding, \"yellow\" manual check, \"red\" automatic rejection</bpmn2:documentation>\n      <bpmn2:incoming>SequenceFlow_2</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_Green</bpmn2:outgoing>\n      <bpmn2:outgoing>SequenceFlow_Red</bpmn2:outgoing>\n      <bpmn2:outgoing>SequenceFlow_Yellow</bpmn2:outgoing>\n    </bpmn2:exclusiveGateway>\n    <bpmn2:businessRuleTask id=\"BusinessRuleTask_CheckApplicationAutomatically\" name=\"Check application automatically\">\n      <bpmn2:documentation>Identify risk for prospect client</bpmn2:documentation>\n      <bpmn2:extensionElements>\n        <zeebe:ioMapping>\n          <zeebe:output source=\"= if result != null then result.riskLevel else [&#34;green&#34;]\" target=\"riskLevels\" />\n          <zeebe:output source=\"= if result != null then result.risk else []\" target=\"risks\" />\n        </zeebe:ioMapping>\n        <zeebe:calledDecision decisionId=\"risk_check\" resultVariable=\"result\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_1gd6p37</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_2</bpmn2:outgoing>\n    </bpmn2:businessRuleTask>\n    <bpmn2:serviceTask id=\"ServiceTask_GetCreditScore\" name=\"Get credit score\">\n      <bpmn2:documentation>Gets credit score for prospect client</bpmn2:documentation>\n      <bpmn2:extensionElements>\n        <zeebe:taskDefinition type=\"calculateScore\" />\n      </bpmn2:extensionElements>\n      <bpmn2:incoming>SequenceFlow_6</bpmn2:incoming>\n      <bpmn2:outgoing>SequenceFlow_1gd6p37</bpmn2:outgoing>\n    </bpmn2:serviceTask>\n  </bpmn2:process>\n  <bpmn2:message id=\"Message_0fvpzfg\" name=\"Message_DocumentRequested\">\n    <bpmn2:extensionElements>\n      <zeebe:subscription correlationKey=\"= documentReferenceId\" />\n    </bpmn2:extensionElements>\n  </bpmn2:message>\n  <bpmn2:error id=\"Error_01bezxs\" name=\"Error_FraudDetected\" errorCode=\"02\" />\n  <bpmn2:error id=\"Error_1u68flh\" name=\"Error_Timeout\" errorCode=\"00\" />\n  <bpmn2:message id=\"Message_0dm6uaq\" name=\"Message_CancellationRequested\">\n    <bpmn2:extensionElements>\n      <zeebe:subscription correlationKey=\"=01\" />\n    </bpmn2:extensionElements>\n  </bpmn2:message>\n  <bpmndi:BPMNDiagram id=\"BPMNDiagram_1\">\n    <bpmndi:BPMNPlane id=\"BPMNPlane_1\" bpmnElement=\"Collaboration_CustomerOnboarding\">\n      <bpmndi:BPMNShape id=\"Participant_0477s11_di\" bpmnElement=\"Participant_00\" isHorizontal=\"true\">\n        <dc:Bounds x=\"156\" y=\"71\" width=\"1470\" height=\"599\" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_StartEvent_4\" bpmnElement=\"StartEvent_ApplicationReceived\">\n        <dc:Bounds x=\"206\" y=\"113\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"199\" y=\"154\" width=\"53\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"BPMNShape_1quvn5y\" bpmnElement=\"Activity_1ke2ixr\" isExpanded=\"true\">\n        <dc:Bounds x=\"200\" y=\"240\" width=\"340\" height=\"142\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"BPMNShape_1g4vznl\" bpmnElement=\"EndMessageEvent_Timeout\">\n        <dc:Bounds x=\"472\" y=\"284\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"450\" y=\"327\" width=\"81\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Event_1urac9n_di\" bpmnElement=\"StartErrorEvent_Timeout\">\n        <dc:Bounds x=\"220\" y=\"284\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"219\" y=\"327\" width=\"40\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Activity_1ryuh2x_di\" bpmnElement=\"UserTask_HandleTimeout\">\n        <dc:Bounds x=\"310\" y=\"262\" width=\"100\" height=\"80\" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_03tyru5\" bpmnElement=\"Flow_151qlxc\">\n        <di:waypoint x=\"256\" y=\"302\" />\n        <di:waypoint x=\"310\" y=\"302\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_0vhug0y\" bpmnElement=\"Flow_0dppbeu\">\n        <di:waypoint x=\"410\" y=\"302\" />\n        <di:waypoint x=\"472\" y=\"302\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNShape id=\"Activity_0q5qosr_di\" bpmnElement=\"Activity_0vp33kx\" isExpanded=\"true\">\n        <dc:Bounds x=\"200\" y=\"400\" width=\"440\" height=\"250\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Event_1xf7lj1_di\" bpmnElement=\"StartMessageEvent_CancellationRequested\">\n        <dc:Bounds x=\"220\" y=\"444\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"209\" y=\"487\" width=\"59\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Activity_0kuhdn6_di\" bpmnElement=\"ServiceTask_CancelApplication\">\n        <dc:Bounds x=\"310\" y=\"422\" width=\"100\" height=\"80\" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Event_1ck9hv0_di\" bpmnElement=\"EndMessageEvent_InformCustomer\">\n        <dc:Bounds x=\"552\" y=\"444\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"527\" y=\"487\" width=\"87\" height=\"40\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Gateway_1a6njvb_di\" bpmnElement=\"ParallelGateway_CancelApplication\">\n        <dc:Bounds x=\"465\" y=\"437\" width=\"50\" height=\"50\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Event_0rel1ew_di\" bpmnElement=\"EndMessageEvent_InformOperations\">\n        <dc:Bounds x=\"552\" y=\"552\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"528\" y=\"595\" width=\"84\" height=\"53\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNEdge id=\"Flow_12nmks0_di\" bpmnElement=\"Flow_12nmks0\">\n        <di:waypoint x=\"256\" y=\"462\" />\n        <di:waypoint x=\"310\" y=\"462\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_19iipc6_di\" bpmnElement=\"Flow_19iipc6\">\n        <di:waypoint x=\"410\" y=\"462\" />\n        <di:waypoint x=\"465\" y=\"462\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_0qrakss_di\" bpmnElement=\"Flow_0qrakss\">\n        <di:waypoint x=\"515\" y=\"462\" />\n        <di:waypoint x=\"552\" y=\"462\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_1jml1az_di\" bpmnElement=\"Flow_1jml1az\">\n        <di:waypoint x=\"490\" y=\"487\" />\n        <di:waypoint x=\"490\" y=\"570\" />\n        <di:waypoint x=\"552\" y=\"570\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNShape id=\"Activity_0avcol9_di\" bpmnElement=\"Activity_ManualCheck\">\n        <dc:Bounds x=\"770\" y=\"217\" width=\"100\" height=\"80\" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_EndEvent_2\" bpmnElement=\"EndEvent_ApplicationIssued\">\n        <dc:Bounds x=\"1555\" y=\"113\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1548\" y=\"154\" width=\"54\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_SendTask_2\" bpmnElement=\"SendTask_SendPolicy\">\n        <dc:Bounds x=\"1400\" y=\"91\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_ServiceTask_3\" bpmnElement=\"ServiceTask_DeliverPolicy\">\n        <dc:Bounds x=\"1249\" y=\"91\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_ExclusiveGateway_3\" bpmnElement=\"ExclusiveGateway_Decision\" isMarkerVisible=\"true\">\n        <dc:Bounds x=\"1165\" y=\"232\" width=\"50\" height=\"50\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1239\" y=\"247\" width=\"49\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_EndEvent_3\" bpmnElement=\"EndEvent_ApplicationRejected\">\n        <dc:Bounds x=\"1555\" y=\"516\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1547\" y=\"557\" width=\"54\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"ServiceTask_0o3o39j_di\" bpmnElement=\"ServiceTask_RejectPolicy\">\n        <dc:Bounds x=\"1249\" y=\"494\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Activity_0aif1w3_di\" bpmnElement=\"SendTask_ReportFraud\">\n        <dc:Bounds x=\"940\" y=\"340\" width=\"100\" height=\"80\" />\n        <bpmndi:BPMNLabel />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Event_1h4o5lj_di\" bpmnElement=\"TerminateEvent_ApplicationCanceledFraud\">\n        <dc:Bounds x=\"1092\" y=\"362\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1071\" y=\"405\" width=\"78\" height=\"40\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_ExclusiveGateway_2\" bpmnElement=\"ExclusiveGateway_Risk\" isMarkerVisible=\"true\">\n        <dc:Bounds x=\"635\" y=\"106\" width=\"50\" height=\"50\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"646\" y=\"81\" width=\"28\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"_BPMNShape_BusinessRuleTask_2\" bpmnElement=\"BusinessRuleTask_CheckApplicationAutomatically\">\n        <dc:Bounds x=\"460\" y=\"91\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"ServiceTask_0tixwo5_di\" bpmnElement=\"ServiceTask_GetCreditScore\">\n        <dc:Bounds x=\"300\" y=\"91\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Event_0pxe3bh_di\" bpmnElement=\"ErrorBoundaryEvent_FraudDetected\">\n        <dc:Bounds x=\"852\" y=\"279\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"893\" y=\"301\" width=\"74\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNEdge id=\"SequenceFlow_1gd6p37_di\" bpmnElement=\"SequenceFlow_1gd6p37\">\n        <di:waypoint x=\"400\" y=\"131\" />\n        <di:waypoint x=\"460\" y=\"131\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"SequenceFlow_01vh1zw_di\" bpmnElement=\"SequenceFlow_01vh1zw\">\n        <di:waypoint x=\"1349\" y=\"534\" />\n        <di:waypoint x=\"1555\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1009\" y=\"564\" width=\"90\" height=\"20\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_16\" bpmnElement=\"SequenceFlow_Red\" sourceElement=\"_BPMNShape_ExclusiveGateway_2\">\n        <di:waypoint x=\"660\" y=\"156\" />\n        <di:waypoint x=\"660\" y=\"534\" />\n        <di:waypoint x=\"1249\" y=\"534\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"666\" y=\"513\" width=\"85\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_2\" bpmnElement=\"SequenceFlow_2\" sourceElement=\"_BPMNShape_BusinessRuleTask_2\" targetElement=\"_BPMNShape_ExclusiveGateway_2\">\n        <di:waypoint x=\"560\" y=\"131\" />\n        <di:waypoint x=\"635\" y=\"131\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"301\" y=\"131\" width=\"90\" height=\"6\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_7\" bpmnElement=\"SequenceFlow_Green\" sourceElement=\"_BPMNShape_ExclusiveGateway_2\">\n        <di:waypoint x=\"685\" y=\"131\" />\n        <di:waypoint x=\"1249\" y=\"131\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"683\" y=\"136\" width=\"74\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_10\" bpmnElement=\"SequenceFlow_10\" sourceElement=\"_BPMNShape_ServiceTask_3\" targetElement=\"_BPMNShape_SendTask_2\">\n        <di:waypoint x=\"1349\" y=\"131\" />\n        <di:waypoint x=\"1400\" y=\"131\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"999\" y=\"133\" width=\"90\" height=\"6\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_11\" bpmnElement=\"SequenceFlow_11\" sourceElement=\"_BPMNShape_SendTask_2\" targetElement=\"_BPMNShape_EndEvent_2\">\n        <di:waypoint x=\"1500\" y=\"131\" />\n        <di:waypoint x=\"1555\" y=\"131\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1159\" y=\"143\" width=\"90\" height=\"6\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_8\" bpmnElement=\"SequenceFlow_ApplicationAccepted\" sourceElement=\"_BPMNShape_ExclusiveGateway_3\">\n        <di:waypoint x=\"1190\" y=\"232\" />\n        <di:waypoint x=\"1190\" y=\"149\" />\n        <di:waypoint x=\"1249\" y=\"149\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1208\" y=\"185\" width=\"53\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_12\" bpmnElement=\"SequenceFlow_ApplicationDeclined\" sourceElement=\"_BPMNShape_ExclusiveGateway_3\">\n        <di:waypoint x=\"1190\" y=\"282\" />\n        <di:waypoint x=\"1190\" y=\"515\" />\n        <di:waypoint x=\"1249\" y=\"515\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"1200\" y=\"294\" width=\"53\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"BPMNEdge_SequenceFlow_6\" bpmnElement=\"SequenceFlow_6\" sourceElement=\"_BPMNShape_StartEvent_4\" targetElement=\"ServiceTask_0tixwo5_di\">\n        <di:waypoint x=\"242\" y=\"131\" />\n        <di:waypoint x=\"300\" y=\"131\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"125\" y=\"131\" width=\"90\" height=\"6\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_0o00may_di\" bpmnElement=\"SequenceFlow_Yellow\">\n        <di:waypoint x=\"660\" y=\"156\" />\n        <di:waypoint x=\"660\" y=\"257\" />\n        <di:waypoint x=\"770\" y=\"257\" />\n        <bpmndi:BPMNLabel>\n          <dc:Bounds x=\"669\" y=\"226\" width=\"84\" height=\"27\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_0ik8h65_di\" bpmnElement=\"Flow_0ik8h65\">\n        <di:waypoint x=\"870\" y=\"257\" />\n        <di:waypoint x=\"1165\" y=\"257\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_177paze_di\" bpmnElement=\"Flow_177paze\">\n        <di:waypoint x=\"870\" y=\"315\" />\n        <di:waypoint x=\"870\" y=\"380\" />\n        <di:waypoint x=\"940\" y=\"380\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_0cvhizd_di\" bpmnElement=\"Flow_0cvhizd\">\n        <di:waypoint x=\"1040\" y=\"380\" />\n        <di:waypoint x=\"1092\" y=\"380\" />\n      </bpmndi:BPMNEdge>\n    </bpmndi:BPMNPlane>\n  </bpmndi:BPMNDiagram>\n</bpmn2:definitions>"
+}

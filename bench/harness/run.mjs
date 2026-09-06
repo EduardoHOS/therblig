@@ -58,14 +58,32 @@ async function runCell({ task, arm, index, model, effort, budget, stamp }) {
         effort,
         maxTurns: 40,
         maxBudgetUsd: budget,
-        // Intended to keep the developer's machine out of the cell. Necessary but NOT sufficient
-        // on SDK 0.3.263: an init message still reports 16 skills, 48 slash commands and 5 agents
-        // from the host. See F14 — no number from this harness is trustworthy until that is fixed.
+        // Keeps the developer's machine out of the cell: no CLAUDE.md, no project skills, no
+        // plugins. Verified by `plugins: []` in the init message; the skills and slash commands
+        // that remain are the CLI's own, identical for anyone running this.
         settingSources: [],
-        env: { ...process.env, CLAUDE_CONFIG_DIR: config },
+        env: {
+          ...process.env,
+          CLAUDE_CONFIG_DIR: config,
+          // Sixteen tools sit well under the threshold where deferral pays for itself, and a
+          // bench needs every arm to see the same surface on turn one rather than after a search.
+          ENABLE_TOOL_SEARCH: 'false',
+        },
         systemPrompt: { type: 'preset', preset: 'claude_code', append: BRIEF },
-        mcpServers: { treadle: treadleServer({ root: cwd, autonomous: new Set(['safe', 'additive', 'routing', 'destructive']) }) },
-        ...arms[arm],
+        // The arm decides which server it gets, and an arm with no treadle tools gets none.
+        mcpServers: arms[arm].tools
+          ? {
+              treadle: treadleServer({
+                root: cwd,
+                // The bench measures what an agent can do, not what a policy permits: the
+                // policy is the product's, and it belongs in a separate experiment.
+                autonomous: new Set(['safe', 'additive', 'routing', 'destructive']),
+                only: arms[arm].tools,
+              }),
+            }
+          : {},
+        allowedTools: arms[arm].allowedTools,
+        disallowedTools: arms[arm].disallowedTools,
         hooks: {
           PreToolUse: [{ hooks: [record] }],
           PostToolUse: [{ hooks: [record] }],
