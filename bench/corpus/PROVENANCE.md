@@ -22,6 +22,11 @@ data stores, groups. Strata by flow-node count: 9 small (<15), 12 medium (15-50)
 ### `handmade/` — files authored for this repo
 Original work, Apache-2.0 with the rest of the repository.
 
+| file | why it exists |
+|---|---|
+| `zeebe-roundtrip.bpmn` | Camunda 8 / Zeebe extension elements, to prove a round-trip loses none of them (F1). |
+| `parallel-join.bpmn` | A parallel split whose branches take 4h and 9h, annotated with `treadle:duration`. The corpus has no file that states how long anything takes, so it is the only fixture that can show a join takes the longer branch and not the sum (F17). |
+
 ## Excluded, with reasons
 
 | asset | why |

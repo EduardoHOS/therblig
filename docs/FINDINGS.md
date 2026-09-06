@@ -419,3 +419,55 @@ Reproduce:
 ```sh
 node --test backend/test/unit/semantics.test.mjs
 ```
+
+## F17 — the corpus can be simulated, and what stops it is a missing scenario, not a missing feature
+
+`simulate()` runs the 21 MIWG models and the two handmade fixtures. Every run either produces a
+cycle time or says exactly what it could not do.
+
+| outcome | files | what it means |
+|---|---|---|
+| ran | 16 | reached an end on every run |
+| **undecided** | 2 (`C.1.0`, `C.1.1`) | a gateway the caller gave nothing to decide with |
+| **unbounded** | 2 (`C.2.0`, `C.7.0`) | a rework loop the scenario never exits |
+| **unsupported** | 1 (`B.2.0`) | an inclusive join, refused by name |
+
+Only one of the four stopping conditions is a limit of the machine. The other three are questions
+for whoever is asking, and answering them makes the model run:
+
+```
+C.7.0, no scenario           → p50 null, undecided: 1 gateway
+C.7.0, { Yes: 0.8, No: 0.2 } → p50 5h, p90 7h
+```
+
+That difference is the finding. `C.7.0` sends an unapproved advertisement back to be approved
+again, and the 7-hour p90 against a 5-hour p50 is the rework showing up in the tail — which is the
+only reason to simulate a process at all.
+
+### Two things the corpus taught the design
+
+**A real gateway carries a label, not an expression.** Every exclusive gateway in the corpus
+documents its decision with a flow name — `Yes`, `No`, `covered` — and not one carries a formal
+condition. A scenario keyed only by condition text would have addressed nothing, so `when` accepts
+a flow's condition, its id, or its label.
+
+**Weights on one gateway are a distribution.** Sampling each exit independently made
+`{ Yes: 0.8, No: 0.2 }` fall through 16% of the time and report the gateway undecided — a scenario
+the caller had every reason to think was complete. Naming one path at `0.25` now leaves `0.75` to
+be shared by the rest.
+
+### What it refuses
+
+`p50` is `null` whenever anything was refused, undecided, deadlocked or unbounded. A number
+alongside a warning gets quoted without the warning.
+
+An inclusive join, a complex gateway, compensation and multi-instance are refused by name: each
+needs information no node carries on its own. A subprocess and a call activity run as one opaque
+step, which is stated rather than hidden. And `synthetic: true` says out loud when no duration in
+the file was annotated, because a p50 to the hour on invented input is opinion with decimal places.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/simulate.test.mjs
+```

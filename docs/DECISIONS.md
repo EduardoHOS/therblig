@@ -409,3 +409,28 @@ because a linter grew it, fails the suite rather than quietly duplicating.
 **No `check` slot on the block table.** One rule on one block would be a slot with a single
 implementation, which ADR-012 rules out. The rule lives in the module that consumes it, and moves
 to the table when a second block needs one.
+
+## ADR-025 — Discrete-event tokens, and a refusal wherever the model needs more than a node knows
+
+Every token carries its own clock. A node fires at the latest arrival among the tokens it
+consumes, so a parallel join takes the longer branch — 4 hours beside 9 is 9, and a running global
+clock would have said 13.
+
+**Durations live in the file**, as `<treadle:duration p50="PT4H"/>` in `extensionElements`. moddle
+round-trips an unknown extension element and its attributes untouched, measured, so this needed no
+moddle descriptor and no dependency. They are versioned with the process and survive every other
+tool that opens it.
+
+**Conditions are never evaluated.** Evaluating FEEL or JUEL would tie this to an engine. The
+caller says which paths are taken, keyed by a flow's condition, its id, or its label — because
+every exclusive gateway in the corpus documents its decision with a label and none carries a
+condition. Weights on one gateway are a distribution, not independent draws.
+
+**Four ways to stop, and all four are said out loud:** `unsupported` (an inclusive join, a complex
+gateway — each needs information no node carries alone), `undecided` (a gateway the scenario did
+not decide), `deadlocks`, and `unbounded` (a loop the scenario never exits, bounded by a step
+budget so a simulator never hangs). `p50` is `null` unless all four are empty: a number beside a
+warning gets quoted without the warning.
+
+**Reverses if:** a model needs sub-scope simulation to be useful. A subprocess runs as one opaque
+step today, which is a stated limit rather than a hidden one.

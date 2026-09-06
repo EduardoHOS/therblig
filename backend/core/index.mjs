@@ -42,4 +42,5 @@ export { applyPatch } from './patch.mjs';
 export { propose } from './propose.mjs';
 export { placeNew, diCoverage } from './placement.mjs';
 export { project } from './projection.mjs';
+export { seconds, simulate } from './simulate.mjs';
 export { block, blocks, byBpmn, byIr, tabulate } from './registry.mjs';
