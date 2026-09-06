@@ -1,3 +1,57 @@
+/**
+ * The coordinate-free read projection an agent reasons over. Empty collections are dropped, so
+ * every key is optional and every reader needs a fallback.
+ *
+ * @typedef {object} Projection
+ * @property {IrProcess[]} [processes]
+ * @property {IrNode[]} [nodes]
+ * @property {IrFlow[]} [flows]
+ * @property {IrLane[]} [lanes]
+ * @property {IrPool[]} [pools]
+ * @property {IrMessageFlow[]} [messageFlows]
+ *
+ * @typedef {object} IrProcess
+ * @property {string} id
+ * @property {string | null} name
+ * @property {boolean | null} executable
+ *
+ * @typedef {object} IrNode
+ * @property {string} id                      the original XML id, carried verbatim
+ * @property {string} type                    an IR word from the block registry
+ * @property {string} [name]
+ * @property {string} [in]                    the container this node lives in
+ * @property {string} [lane]
+ * @property {string} [on]                    boundary events only: the host activity
+ * @property {string | string[]} [event]      event blocks only: the kinds it carries
+ * @property {string} [default]               gateways and activities only
+ * @property {false} [interrupting]           boundary events only, when non-interrupting
+ * @property {true} [eventSubprocess]
+ * @property {string[]} [ext]                 vendor extension element types, unmodified
+ *
+ * @typedef {object} IrFlow
+ * @property {string} id
+ * @property {string} from
+ * @property {string} to
+ * @property {string} [name]
+ * @property {string} [if]                    the condition expression body, as written
+ *
+ * @typedef {object} IrLane
+ * @property {string} id
+ * @property {string | null} name
+ * @property {string | null} in
+ *
+ * @typedef {object} IrPool
+ * @property {string} id
+ * @property {string | null} name
+ * @property {string | null} process
+ *
+ * @typedef {object} IrMessageFlow
+ * @property {string} id
+ * @property {string | null} name
+ * @property {string} [from]
+ * @property {string} [to]
+ */
+
 import { containerOf, walk } from './document.mjs';
 import { byBpmn } from './registry.mjs';
 
@@ -12,6 +66,7 @@ function laneIndex(definitions) {
   return lanes;
 }
 
+/** @param {unknown} definitions @param {{scope?: string | null}} [options] @returns {Projection} */
 export function project(definitions, { scope = null } = {}) {
   const lanes = laneIndex(definitions);
   const projection = {

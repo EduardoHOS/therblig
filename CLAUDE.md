@@ -18,6 +18,8 @@ library do not exist yet. Do not describe planned surfaces as shipped.
 - `backend/core/` — the functional product core. No filesystem, CLI, network, or MCP I/O.
 - `backend/io/` — the only place that touches a filesystem: confinement and atomic replacement.
 - `backend/cli/` — argument parsing and presentation. No product logic of its own.
+- `backend/contracts/` — a TypeScript consumer of the emitted `.d.mts`. Checked by `tsc`,
+  never executed, so it lives outside `backend/test/`.
 - `backend/test/` — all tests for the backend core, grouped by test kind.
 - `bench/` — corpus, benchmark arms, probes, scorers, and task definitions.
 - `docs/` — empirical findings, architecture decisions, deferred work, and plans.

@@ -1,3 +1,17 @@
+/**
+ * @typedef {object} Gate
+ * @property {boolean} ok
+ *
+ * @typedef {object} Proposal
+ * @property {boolean} ok                      true only when every gate passed
+ * @property {string} xml                      the result; the caller's document is untouched
+ * @property {Record<string, Gate>} gates
+ * @property {object} diff
+ * @property {string[]} created
+ * @property {string[]} changed
+ * @property {string[]} placed
+ */
+
 import { parse, serialize } from './document.mjs';
 import { scoreAll } from './gates.mjs';
 import { applyPatch } from './patch.mjs';
@@ -7,6 +21,7 @@ import { diCoverage, placeNew } from './placement.mjs';
 // it created, scores every gate, and returns the result — the caller's document is never touched,
 // so a plan that fails halfway leaves nothing behind. There is no deep clone of a moddle tree, so
 // serialize-then-parse is the clone.
+/** @param {{moddle: unknown, definitions: unknown}} document @param {import('./patch.mjs').Operation[]} operations @returns {Promise<Proposal>} */
 export async function propose(document, operations) {
   const before = await serialize(document);
   const isolated = await parse(before);

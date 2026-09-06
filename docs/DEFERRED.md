@@ -3,15 +3,6 @@
 Every entry records an intentional limit, why it is acceptable now, and the concrete
 event that requires the full implementation. Remove an entry when its work ships.
 
-## TypeScript contracts
-
-The core remains ESM JavaScript while the patch and projection APIs are still being
-measured. Runtime validation is the authoritative boundary; a premature declaration file
-would freeze vocabulary before the bake-off finishes.
-
-**Trigger:** before publishing the library or exposing patch operations through MCP. Add
-strict discriminated operation types without introducing a second implementation tree.
-
 ## Cross-file references
 
 `calledElement` on a call activity, and `structureRef` on an item definition, may legitimately

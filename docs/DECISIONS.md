@@ -340,3 +340,24 @@ A command for what an argument already does is a command to keep working.
 
 **Ops are named by an explicit map, and `--args` takes JSON.** One flag carrying the op's arguments
 maps to the envelope's `args` exactly, instead of inventing a flag per parameter of ten ops.
+
+## ADR-022 — TypeScript contracts are emitted from JSDoc, never hand-written
+
+`npm run types` runs `tsc --emitDeclarationOnly` over `backend/core` and `backend/io` and then
+type-checks `backend/contracts/consumer.ts` against what came out. There is no second
+implementation tree, which was the condition the DEFERRED entry set: the types live in the JSDoc
+of the module that owns the concept, and `index.mjs` re-declares them so a consumer imports
+everything from one place.
+
+**Rests on:** the consumer resolves `treadle` through a `paths` mapping to the emitted `.d.mts`,
+so it exercises the declarations rather than the JavaScript they came from. Its three
+`@ts-expect-error` directives are the guard, and a self-verifying one: widening `Operation` to
+accept any object makes `tsc` report the directive as unused and `npm run types` fail. Measured by
+doing it.
+
+**`checkJs` stays off.** Runtime validation is the authoritative boundary — a closed vocabulary
+that fails on an unknown word, and gates that refuse to publish. The declarations describe that
+contract for a caller; they do not replace it.
+
+**`types/` is not committed.** It is built by `npm run check`, and a generated tree in git is a
+tree that drifts.

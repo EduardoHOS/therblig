@@ -57,3 +57,6 @@ desktop.ini
 .cursor/
 .aider*
 CLAUDE.local.md
+
+# emitted from JSDoc by `npm run types`; never hand-edited
+types/

@@ -1,3 +1,45 @@
+/**
+ * The four primitives. Everything that touches the moddle tree is one of these, so the union is
+ * closed by construction: an op name never reaches applyPatch.
+ *
+ * @typedef {AddOperation | SetOperation | DelOperation | ConnectOperation} Operation
+ *
+ * @typedef {object} AddOperation
+ * @property {'add'} op
+ * @property {string} type                    an IR word from the block registry
+ * @property {string} in                      the container to add into
+ * @property {string} [id]                    minted when absent or already taken
+ * @property {string} [name]
+ * @property {string} [event]                 event blocks only
+ * @property {{duration?: string, cycle?: string, date?: string}} [timer]
+ * @property {string} [on]                    boundary events only: the host
+ * @property {boolean} [interrupting]
+ * @property {string} [after]                 splice after this node
+ * @property {[string, string]} [between]     splice between these two, retargeting the flow
+ *
+ * @typedef {object} SetOperation
+ * @property {'set'} op
+ * @property {string} id
+ * @property {Record<string, unknown>} [patch]  `if`, `default`, `to` and `lane` are structural
+ *
+ * @typedef {object} DelOperation
+ * @property {'del'} op
+ * @property {string} id
+ *
+ * @typedef {object} ConnectOperation
+ * @property {'connect'} op
+ * @property {string} from
+ * @property {string} to
+ * @property {string} [id]
+ * @property {string} [name]
+ * @property {string} [if]
+ * @property {boolean} [remove]
+ *
+ * @typedef {object} PatchResult
+ * @property {string[]} changed
+ * @property {string[]} created
+ */
+
 import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
 import { contained, containerOf, index, walk } from './document.mjs';
 import { block } from './registry.mjs';
@@ -247,6 +289,7 @@ function collaborationFor(definitions, source, target) {
   throw new Error(`"${source.id}" and "${target.id}" are not pools of one collaboration`);
 }
 
+/** @param {{moddle: unknown, definitions: unknown}} document @param {Operation[]} operations @returns {PatchResult} */
 export function applyPatch({ moddle, definitions }, operations) {
   const context = {
     moddle,

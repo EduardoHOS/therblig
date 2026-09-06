@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "types",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2023",
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "backend"
+  },
+  "include": [
+    "backend/core/**/*.mjs",
+    "backend/io/**/*.mjs"
+  ]
+}

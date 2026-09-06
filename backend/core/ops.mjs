@@ -1,3 +1,26 @@
+/**
+ * What an op returns. Every field is derived from the plan or from the IR: nothing here is the
+ * op's opinion of itself, which is why `risk` cannot drift from what the plan actually does.
+ *
+ * @typedef {'safe' | 'additive' | 'routing' | 'destructive'} RiskLevel
+ *
+ * @typedef {object} Envelope
+ * @property {string} op
+ * @property {Record<string, unknown>} args
+ * @property {import('./patch.mjs').Operation[]} plan
+ * @property {import('./patch.mjs').Operation[]} inverse
+ * @property {string[]} minted                 ids this plan will create
+ * @property {string[]} [removes]              ids `del` will cascade, beyond the named one
+ * @property {{split: string, join: string}} [result]
+ * @property {RiskLevel} risk
+ * @property {{cols: number, rows: number}} footprint
+ * @property {string} explain                  one sentence, in the file's own names
+ *
+ * @typedef {object} Step
+ * @property {string} type                     an IR word from the block registry
+ * @property {string} [name]
+ */
+
 import { mintId } from './patch.mjs';
 import { byIr } from './registry.mjs';
 
@@ -58,6 +81,7 @@ function riskOf(operation) {
 }
 
 // Risk is a function of the plan, never declared by the op: declared risk drifts, computed cannot.
+/** @param {import('./patch.mjs').Operation[]} plan @returns {RiskLevel} */
 export function risk(plan) {
   return LEVEL[Math.max(0, ...plan.map((operation) => LEVEL.indexOf(riskOf(operation))))];
 }
@@ -113,6 +137,7 @@ function assertInsertable(step) {
   }
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{anchor: string, step: Step, via?: string}} args @returns {Envelope} */
 export function insertAfter(ir, args) {
   const { anchor, step, via } = args;
   const node = nodeOf(ir, anchor);
@@ -139,6 +164,7 @@ export function insertAfter(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{on: string, after: string, to: string, name?: string}} args @returns {Envelope} */
 export function timeout(ir, args) {
   const { on, after, to, name } = args;
   const host = nodeOf(ir, on);
@@ -176,6 +202,7 @@ export function timeout(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{id: string, name: string}} args @returns {Envelope} */
 export function rename(ir, args) {
   const { id, name } = args;
   const element = elementOf(ir, id);
@@ -203,6 +230,7 @@ function incoming(ir, id) {
   return list(ir, 'flows').filter((flow) => flow.to === id);
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{id: string}} args @returns {Envelope} */
 export function bypass(ir, args) {
   const { id } = args;
   const node = nodeOf(ir, id);
@@ -247,6 +275,7 @@ export function bypass(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{on: string, to: string, name?: string}} args @returns {Envelope} */
 export function onError(ir, args) {
   const { on, to, name } = args;
   const host = nodeOf(ir, on);
@@ -276,6 +305,7 @@ export function onError(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{id: string, lane: string}} args @returns {Envelope} */
 export function moveToLane(ir, args) {
   const { id, lane } = args;
   const node = nodeOf(ir, id);
@@ -303,6 +333,7 @@ export function moveToLane(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{flow: string, if?: string, default?: boolean}} args @returns {Envelope} */
 export function guard(ir, args) {
   const { flow: flowId, if: condition, default: isDefault } = args;
   if ((condition == null) === (isDefault == null)) {
@@ -333,6 +364,7 @@ export function guard(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{from: string, to: string, name?: string}} args @returns {Envelope} */
 export function message(ir, args) {
   const { from, to, name } = args;
   const source = nodeOf(ir, from);
@@ -449,6 +481,7 @@ function fork(ir, args, { op, kind, anchor, via, branches, condition, label, nam
 
 const chain = (steps) => steps.map((step) => `"${step.name ?? step.type}"`).join(' then ');
 
+/** @param {import('./projection.mjs').Projection} ir @param {{anchor: string, when: string, yes: Step[], no?: Step[], via?: string, name?: string, label?: string}} args @returns {Envelope} */
 export function branch(ir, args) {
   const { anchor, when, yes = [], no, via, name, label } = args;
   if (!when) throw precondition('missing-condition', 'A branch needs a condition — pass when');
@@ -483,6 +516,7 @@ export function branch(ir, args) {
   });
 }
 
+/** @param {import('./projection.mjs').Projection} ir @param {{anchor: string, branches: Step[][], via?: string}} args @returns {Envelope} */
 export function parallel(ir, args) {
   const { anchor, branches = [], via } = args;
   const built = fork(ir, args, { op: 'parallel', kind: 'and', anchor, via, branches });
