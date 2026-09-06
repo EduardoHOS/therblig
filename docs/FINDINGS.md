@@ -478,3 +478,33 @@ cheap and the file it writes is committed, so the comparison is a single command
 produced the same policy conclusion this one did, from no evidence at all. It now refuses
 to emit a verdict below a 100-file sample. That is the same failure as F11 in a different
 costume: an instrument reporting success because it measured nothing.
+
+## F16 — the corpus could not catch a false refusal on an ordinary file
+
+**2026-09-06 · `bench/corpus/handmade/collapsed-subprocess.bpmn`, `packages/therblig/src/place.mjs`**
+
+A collapsed sub-process renders as a single box. Its children are deliberately absent
+from the plane, because nothing draws them. `diCoverage` demanded a shape for every
+element regardless, so a perfectly ordinary file reported:
+
+```
+ok: false | need 10 covered 5
+missing: Pack_Start, Pack_Pick, Pack_End, Pack_Flow_1, Pack_Flow_2
+```
+
+Since DI coverage gates the write barrier, that is not a cosmetic complaint — it would
+have **refused every edit to any file containing a collapsed sub-process with children**,
+which is a large share of real Camunda models.
+
+**Nothing in the corpus could find this.** All six collapsed sub-processes across the 21
+MIWG reference models have zero children, so the check passed on every file available
+and would have kept passing until a design partner hit it. The fixture was hand-authored
+to expose it, and the fix — skip the subtree of any sub-process whose shape carries
+`isExpanded="false"` — is four lines.
+
+The general point, which now has three instances in this project: **a corpus is a sample,
+and a gate calibrated only against a sample is calibrated against that sample's
+accidents.** F11 was an instrument blind to the damage it graded; F15's first run drew a
+policy conclusion from an empty sample; this is a check that could only ever pass. The
+response in each case is the same — write the fixture that can fail before trusting the
+result that passes.

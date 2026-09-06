@@ -6,11 +6,10 @@ without wrecking the diagram.**
 An open-source MCP server, CLI and library for BPMN 2.0. Engine-neutral, file-native,
 no account, no server, works offline. Apache-2.0.
 
-> Status: **pre-release, private.** No product code yet. This repo holds the benchmark
-> harness and the evidence that decides how the product gets built. See
-> [docs/FINDINGS.md](docs/FINDINGS.md) for what has been measured — including what was
-> measured *wrongly* and corrected — and [docs/DECISIONS.md](docs/DECISIONS.md) for what
-> was decided on the strength of it.
+> Status: **pre-release, not yet published to npm.** The library, CLI and MCP server
+> work; writes are guarded and tested. See [docs/FINDINGS.md](docs/FINDINGS.md) for what
+> has been measured — including what was measured *wrongly* and corrected — and
+> [docs/DECISIONS.md](docs/DECISIONS.md) for what was decided on the strength of it.
 
 ---
 
@@ -49,8 +48,11 @@ scored by a gate testing that everything which moved moved by the same delta. Th
 read shape bounds with a regex that cannot reach a `BPMNLabel`, and the placement code
 moved shape bounds and nothing else — so on two of the four files it certified,
 **12 labels were left behind while their shapes slid out from under them, and the gate
-reported success.** Corrected in [F11](docs/FINDINGS.md); the fix is scheduled before any
-product code depends on it.
+reported success.** Corrected in [F11](docs/FINDINGS.md), and now 0 of 12 — labels are
+translated with their shapes, and the make-room shift is scoped to the pool being edited
+rather than the whole document. A probe holds the property in the test suite; the gate
+that missed it was deliberately left alone, because it scores the benchmark and is not
+what guards a write.
 
 We publish the corrections because a preservation tool that hides its own preservation
 failures is worth nothing. Details and repro steps: [docs/FINDINGS.md](docs/FINDINGS.md).
@@ -61,7 +63,7 @@ failures is worth nothing. Details and repro steps: [docs/FINDINGS.md](docs/FIND
 claude mcp add therblig -- npx -y therblig-mcp --root .
 ```
 
-Five tools, all read-only in this version:
+Five tools:
 
 | tool | what it gives the model |
 |---|---|
@@ -69,13 +71,20 @@ Five tools, all read-only in this version:
 | `bpmn_explain` | counts, control-flow complexity, and a Mermaid diagram |
 | `bpmn_lint` | what is wrong, the BPMN rule it breaks, and the fix |
 | `bpmn_verify` | does it parse and match the five OMG schemas |
-| `bpmn_patch` | previews an edit and reports anything that changed which you did not ask for |
+| `bpmn_patch` | edits a file, and refuses if the edit changed anything you did not ask for |
 
-`bpmn_patch` takes `dry_run: true` and nothing else. It applies the operations to the
-parsed document in memory, places new elements next to their neighbours, runs the
-write-guard over the result, and reports — then throws the result away. Writing is the
-next version. The barrier runs on the preview so its calibration is measured before
-anything is at stake.
+`bpmn_patch` previews by default. To write, pass `dry_run: false` and the `base_rev` you
+were given when you read the file — so an edit built against bytes that have since
+changed on disk is refused rather than overwriting a save from somebody's modeller.
+
+Before anything is written, the edit is compared against the original: if it changed
+something the operations did not ask for — a lost element, a label left behind while its
+shape moved, a sequence flow crossing a pool — it is refused and the file is not opened
+for writing at all. Refused and byte-identical are the same statement.
+
+The write itself goes to a temp file in the same directory and is renamed over the
+target, so an interrupted edit leaves either the old file or the new one, never a
+fragment. That is tested by actually killing the process mid-write.
 
 Or from a terminal:
 
@@ -99,6 +108,9 @@ test is case-insensitive on Windows. Those tests were written before the handler
 ## Repo layout
 
 ```
+packages/
+  therblig/     the library, CLI and MCP server
+  therblig-mcp/ the npx entry point
 bench/          the benchmark harness
   corpus/       BPMN fixtures + profilers (see corpus/PROVENANCE.md)
   scorer/       the five scoring gates
@@ -118,29 +130,34 @@ a different measurement quietly.
 
 ```bash
 npm ci
-npm test            # the arm-C suite: 51 assertions
-npm run probe       # the red probes — these FAIL on purpose, see below
+npm test            # 99 assertions across six suites
+npm run oracle      # lint the whole corpus
+npm run probe       # the one probe that FAILS on purpose, see below
 npm run licence-guard
-npm run bench:baseline
+npm run pack-audit  # what would actually ship
 ```
 
-`npm run probe` is expected to be red. Each probe asserts *correct* behaviour against a
-defect that is not fixed yet, so it fails today and turns green when the fix lands. As of
-2026-09-04 that is 12 detached labels (F11), five invariant violations (F12) and one lost
-XML comment (F10). A probe written after its fix proves nothing about the bug it claims to
-cover.
+`npm run probe` is expected to be red, and only that one. The label and invariant probes
+were red when they were written, went green when the fixes landed, and moved into
+`npm test` — a probe written after its fix proves nothing about the bug it claims to
+cover. What is left is comment conservation (F10), which is red because of a *decision*
+rather than a bug: moddle does not model XML comments, and ADR-004 chose to warn rather
+than refuse, because the naive text-editing baseline preserves them for free and refusing
+would make the structured path strictly worse.
 
 ## How this gets built
 
 Evidence first, then ship, then study.
 
-1. **Truth pass** — correct the published evidence, pin the runtime, replace the licence
-   guard, and write the red probes. No product code.
-2. **Core + oracle** — extract the library, and build the write-guard *separately* from
-   the gates that scored the benchmark. Conflating those is how F9 came to be trusted.
-3. **`npx -y therblig-mcp`** — read, explain, lint, and preview edits. The install trigger.
-4. **Guarded writes**, then **the preservation receipt**: an offline-checkable proof that
-   nothing outside an edit moved, plus a headless SVG a reviewer can look at.
+1. ~~**Truth pass**~~ — done. Corrected the published evidence, pinned the runtime,
+   replaced the licence guard, wrote the red probes.
+2. ~~**Core + oracle**~~ — done. The write-guard is built *separately* from the gates that
+   scored the benchmark; conflating those is how F9 came to be trusted.
+3. ~~**`npx -y therblig-mcp`**~~ — done. Read, explain, lint, verify, preview.
+4. ~~**Guarded writes**~~ — done. base_rev, an atomic rename, and a barrier that leaves
+   the file byte-identical when it refuses.
+5. **The preservation receipt** — next: an offline-checkable proof that nothing outside
+   an edit moved, plus a headless SVG a reviewer can look at.
 
 A three-arm LLM comparison was planned first and was deliberately reordered: at n=20 the
 pre-registered analysis has 0.21 power against the effect it was built to detect, so it

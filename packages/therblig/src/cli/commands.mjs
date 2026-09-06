@@ -10,10 +10,8 @@ import { project } from '../ir.mjs';
 import { explain as explainDoc } from '../explain.mjs';
 import { parses, xsdValid } from '../validate.mjs';
 import { inspect } from '../oracle/inspect.mjs';
-import { compare, blocking } from '../oracle/compare.mjs';
+import { applyToFile } from '../write.mjs';
 import { message } from '../oracle/invariants.mjs';
-import { applyPatch } from '../patch.mjs';
-import { placeNew } from '../place.mjs';
 import { readWithRev } from '../rev.mjs';
 import { TherbligError } from '../errors.mjs';
 
@@ -135,33 +133,32 @@ export async function cmdFmt(files, { json, write }) {
 }
 
 /**
- * patch --dry-run — apply ops in memory, guard the result, print what would change.
- * v0.1 never writes. The barrier runs on the preview so its calibration is measured
- * before anything is at stake.
+ * patch — apply ops, guard the result, and write only if the guard passes.
+ *
+ * Without --write this previews and returns. With --write it also requires --base-rev,
+ * so an edit built against bytes that have since changed on disk is refused rather
+ * than silently overwriting whatever a modeller saved in the meantime.
  */
-export async function cmdPatch(file, ops, { json }) {
-  const { xml, rev } = await readWithRev(file);
-  const doc = await parse(xml);
-  const { changed, created } = applyPatch(doc, ops);
-  const touched = [...new Set([...changed, ...created])];
-  placeNew(doc, touched);
-  const after = await serialize(doc);
-
-  const diags = await compare(xml, after, { expectedIds: touched });
-  const blockers = blocking(diags);
+export async function cmdPatch(file, ops, { json, write, baseRev }) {
+  const r = await applyToFile(file, ops, { baseRev, dryRun: !write });
+  const blockers = r.diagnostics.filter((d) => d.severity === 'error');
   const result = {
-    file: rel(file), base_rev: rev, dry_run: true,
-    created, changed,
-    refused: blockers.length > 0,
-    diagnostics: diags.map((d) => ({ ...d, message: message(d) })),
+    file: rel(file), base_rev: r.base_rev, new_rev: r.new_rev ?? null,
+    written: r.written, refused: r.refused,
+    created: r.created, changed: r.changed,
+    diagnostics: r.diagnostics.map((d) => ({ ...d, message: message(d) })),
   };
-  if (json) { console.log(JSON.stringify(result, null, 2)); return blockers.length ? 1 : 0; }
+  if (json) { console.log(JSON.stringify(result, null, 2)); return r.refused ? 1 : 0; }
 
-  console.log(`${rel(file)}  ${rev}`);
-  console.log(`  ${created.length} created, ${changed.length} changed. Nothing written.`);
-  for (const d of diags) console.log(`  ${d.severity === 'error' ? 'error  ' : 'warning'}  ${message(d)}`);
-  console.log(blockers.length
-    ? `\nRefused. ${blockers.length} change${blockers.length === 1 ? '' : 's'} outside what you asked for.`
-    : '\nSafe to apply. Writing arrives in the next version.');
-  return blockers.length ? 1 : 0;
+  console.log(`${rel(file)}  ${r.base_rev}`);
+  console.log(`  ${r.created.length} created, ${r.changed.length} changed.`);
+  for (const d of r.diagnostics) console.log(`  ${d.severity === 'error' ? 'error  ' : 'warning'}  ${message(d)}`);
+  if (r.refused) {
+    console.log(`\nRefused. ${blockers.length} change${blockers.length === 1 ? '' : 's'} outside what you asked for. Nothing was written.`);
+  } else if (r.written) {
+    console.log(`\nWritten. ${r.base_rev} → ${r.new_rev}.`);
+  } else {
+    console.log('\nSafe to apply. Nothing written — add --write and pass --base-rev.');
+  }
+  return r.refused ? 1 : 0;
 }

@@ -11,12 +11,14 @@ const USAGE = `therblig — BPMN 2.0, from the command line.
   therblig lint    <file|dir>...     what is wrong, and the rule it breaks
   therblig verify  <file|dir>...     does it parse and match the OMG schemas
   therblig fmt     <file|dir>... --check   what normalising would cost
-  therblig patch   <file> --ops <file.json> --dry-run
+  therblig patch   <file> --ops <file.json>            preview the edit
+  therblig patch   <file> --ops <file.json> --write --base-rev <rev>
 
   --json      machine-readable output
   --version   print the version
 
-Editing is previewed but not written in this version. Pass --dry-run and read the diff.`;
+Editing previews by default. --write also needs --base-rev, the revision "read" printed,
+so an edit built against stale bytes is refused instead of overwriting a modeller save.`;
 
 const argv = process.argv.slice(2);
 const flags = new Set(argv.filter((a) => a.startsWith('--')));
@@ -48,15 +50,17 @@ async function main() {
     case 'verify': return cmdVerify(expand(targets), { json });
     case 'fmt': return cmdFmt(expand(targets), { json, write: flags.has('--write') });
     case 'patch': {
-      const [file] = targets;
+      const baseRev = valueOf('--base-rev');
+      const file = targets.filter((t) => t !== baseRev)[0];
       if (!file) { console.log('therblig patch needs a file. See therblig --help.'); return 1; }
       if (!opsPath) { console.log('therblig patch needs --ops <file.json>. See therblig --help.'); return 1; }
-      if (!flags.has('--dry-run')) {
-        console.log('This version previews edits but does not write them. Add --dry-run to see the diff.');
+      const write = flags.has('--write');
+      if (write && !baseRev) {
+        console.log('Writing needs --base-rev, the revision therblig read printed. Read the file again to get it.');
         return 1;
       }
       const ops = JSON.parse(readFileSync(opsPath, 'utf8'));
-      return cmdPatch(file, Array.isArray(ops) ? ops : [ops], { json });
+      return cmdPatch(file, Array.isArray(ops) ? ops : [ops], { json, write, baseRev });
     }
     default:
       console.log(`Unknown command "${cmd}".\n\n${USAGE}`);

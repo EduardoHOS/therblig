@@ -2,24 +2,23 @@
 //
 // ADR-010 rev. 2: every tool takes a path as an ordinary argument and the server holds
 // no cross-call state. Consistency travels in `base_rev` — the first 12 hex of the
-// SHA-256 of the file's bytes — which every read returns and every write will require.
+// SHA-256 of the file's bytes — which every read returns and every write requires.
 // No handles, no patch_id: a file on disk is already named by the filesystem, and
 // re-reading it costs single-digit milliseconds.
 //
-// Everything here is READ-ONLY. bpmn_patch accepts dry_run: true and nothing else, so
-// v0.1 has zero blast radius while still exercising the IR, the ops, the placement and
-// the refusal messages against real files and real models.
+// Four tools are read-only. bpmn_patch previews by default and writes only when asked
+// with dry_run: false AND the base_rev the caller was given — so an edit built against
+// bytes that have since changed on disk is refused rather than overwriting a save from
+// somebody's modeller. A refused edit never opens the file for writing at all.
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
-import { parse, serialize } from '../model.mjs';
+import { parse } from '../model.mjs';
 import { project } from '../ir.mjs';
-import { applyPatch } from '../patch.mjs';
-import { placeNew } from '../place.mjs';
+import { applyToFile } from '../write.mjs';
 import { explain } from '../explain.mjs';
 import { parses, xsdValid } from '../validate.mjs';
 import { inspect } from '../oracle/inspect.mjs';
-import { compare, blocking } from '../oracle/compare.mjs';
 import { message } from '../oracle/invariants.mjs';
 import { readWithRev } from '../rev.mjs';
 import { confine } from '../paths.mjs';
@@ -130,36 +129,37 @@ export function createServer(root) {
 
   server.registerTool('bpmn_patch', {
     description:
-      'Preview an edit. Applies operations to the parsed document in memory, places any new ' +
-      'elements next to their neighbours, and reports what would change — including anything ' +
-      'that changed which you did not ask for. Writes nothing in this version: dry_run must be ' +
-      'true. Operations: add, set, del, connect.',
+      'Edit a file. Applies operations to the parsed document, places new elements next to their ' +
+      'neighbours, and checks the result against the original before anything is written — if the ' +
+      'edit changed something you did not ask for, it is refused and the file is left untouched. ' +
+      'Defaults to a preview. Operations: add, set, del, connect.',
     inputSchema: z.object({
       path: z.string(),
       ops: z.array(z.record(z.string(), z.any())).min(1)
         .describe('Patch operations, e.g. {"op":"add","type":"user","name":"Review","in":"<processId>","between":["<a>","<b>"]}'),
-      dry_run: z.literal(true).describe('Must be true. This version previews edits and never writes.'),
+      dry_run: z.boolean().default(true)
+        .describe('true previews and writes nothing. false writes, and then base_rev is required.'),
       base_rev: z.string().optional()
-        .describe('The revision you read. Not required for a dry run; required once writing exists.'),
+        .describe('The revision you were given when you read the file. Required to write, so an edit built against bytes that have since changed is refused rather than overwriting them.'),
     }),
-  }, guard(async ({ path, ops, base_rev }) => {
-    const { xml, rev } = await open(path);
-    if (base_rev && base_rev !== rev) {
-      throw new TherbligError('THB_STALE_REV', `You read ${base_rev}; the file is now ${rev}.`);
-    }
-    const doc = await parse(xml);
-    const { changed, created } = applyPatch(doc, ops);
-    const touched = [...new Set([...changed, ...created])];
-    placeNew(doc, touched);
-    const after = await serialize(doc);
-    const diags = await compare(xml, after, { expectedIds: touched });
-    const blockers = blocking(diags);
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+    },
+  }, guard(async ({ path, ops, dry_run, base_rev }) => {
+    const abs = await confine(root, path);
+    const r = await applyToFile(abs, ops, { baseRev: base_rev ?? null, dryRun: dry_run !== false });
     return json({
-      ok: blockers.length === 0,
-      dry_run: true, base_rev: rev, written: false,
-      created, changed,
-      refused: blockers.length > 0,
-      diagnostics: diags.map((d) => ({ code: d.code, severity: d.severity, elements: d.elements, message: message(d) })),
+      ok: !r.refused,
+      dry_run: dry_run !== false,
+      base_rev: r.base_rev,
+      new_rev: r.new_rev ?? null,
+      written: r.written,
+      refused: r.refused,
+      created: r.created,
+      changed: r.changed,
+      diagnostics: r.diagnostics.map((d) => ({ code: d.code, severity: d.severity, elements: d.elements, message: message(d) })),
     });
   }));
 

@@ -251,11 +251,31 @@ export function placeNew({ moddle, definitions }, ids) {
 export function diCoverage(definitions) {
   const { byElement } = diIndex(definitions);
   const live = index(definitions);
+
+  // A collapsed sub-process draws as a single box: its children are deliberately not
+  // on the plane, and demanding shapes for them refuses every edit to an ordinary
+  // Camunda file. Every collapsed sub-process in the MIWG corpus happens to be empty,
+  // so nothing caught this until bench/corpus/handmade/collapsed-subprocess.bpmn was
+  // written to catch it — a normal file that reported 5 elements missing.
+  const collapsed = new Set();
+  for (const [elId, di] of byElement) {
+    if (di.$type === 'bpmndi:BPMNShape' && di.isExpanded === false) collapsed.add(elId);
+  }
+  const insideCollapsed = (el) => {
+    let p = el.$parent;
+    while (p) {
+      if (p.id && collapsed.has(p.id)) return true;
+      p = p.$parent;
+    }
+    return false;
+  };
+
   const missing = [];
   let need = 0;
   for (const el of walk(definitions)) {
     if (!el.id || !el.$type) continue;
     if (!NEEDS_SHAPE.test(el.$type) && !NEEDS_EDGE.test(el.$type)) continue;
+    if (insideCollapsed(el)) continue;
     need++;
     if (!byElement.has(el.id)) missing.push({ id: el.id, type: el.$type });
   }

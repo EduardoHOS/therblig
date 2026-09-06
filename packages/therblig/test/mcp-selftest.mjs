@@ -6,7 +6,7 @@
 // handler that defends against them.
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -117,6 +117,46 @@ const [p1, p2, p3] = patched.replies.map(payload);
 check('a clean edit previews without refusing', p1?.ok === true && p1.written === false && p1.created.length > 0, JSON.stringify(p1?.diagnostics)?.slice(0, 140));
 check('a stale base_rev is refused', p2?.code === 'THB_STALE_REV', String(p2?.code));
 check('the file on disk is untouched', p3?.base_rev === before?.base_rev, `${before?.base_rev} -> ${p3?.base_rev}`);
+
+console.log('\nwriting, over the wire');
+
+// A sandbox root so the corpus is never the thing being written to.
+const sandboxRoot = mkdtempSync(join(tmpdir(), 'therblig-mcp-'));
+const target = join(sandboxRoot, 'orders.bpmn');
+writeFileSync(target, readFileSync(join(ROOT, 'handmade', 'zeebe-roundtrip.bpmn')));
+const originalBytes = readFileSync(target);
+
+const w = await session([
+  call(1, 'bpmn_read', { path: 'orders.bpmn', view: 'outline' }),
+], { root: sandboxRoot });
+const rev = payload(w.replies[0])?.base_rev;
+check('the sandbox file reads', /^[0-9a-f]{12}$/.test(rev ?? ''), String(rev));
+
+// The refusals run in their OWN session, so the bytes can be inspected before any
+// accepted write happens. Bundling them with the successful write made the "wrote
+// nothing" assertion vacuous — it could not distinguish a refusal from a write that
+// was later overwritten.
+const refusals = await session([
+  call(1, 'bpmn_patch', { path: 'orders.bpmn', dry_run: false, ops: [{ op: 'set', id: 'Charge', patch: { name: 'A' } }] }),
+  call(2, 'bpmn_patch', { path: 'orders.bpmn', dry_run: false, base_rev: 'deadbeefcafe', ops: [{ op: 'set', id: 'Charge', patch: { name: 'B' } }] }),
+], { root: sandboxRoot });
+const [noRev, badRev] = refusals.replies.map(payload);
+check('a write with no base_rev is refused', noRev?.code === 'THB_REV_REQUIRED', String(noRev?.code));
+check('a write with a stale base_rev is refused', badRev?.code === 'THB_STALE_REV', String(badRev?.code));
+check('neither refusal touched the file',
+  Buffer.compare(originalBytes, readFileSync(target)) === 0, 'the bytes changed after two refused writes');
+
+const w2 = await session([
+  call(1, 'bpmn_patch', { path: 'orders.bpmn', dry_run: false, base_rev: rev, ops: [{ op: 'set', id: 'Charge', patch: { name: 'Charge the card' } }] }),
+  call(2, 'bpmn_read', { path: 'orders.bpmn', view: 'outline' }),
+], { root: sandboxRoot });
+const [wrote, reread] = w2.replies.map(payload);
+check('a write with the right base_rev lands', wrote?.written === true && wrote.new_rev && wrote.new_rev !== rev,
+  JSON.stringify(wrote)?.slice(0, 160));
+check('the revision moves after a write', reread?.base_rev === wrote?.new_rev, `${reread?.base_rev} vs ${wrote?.new_rev}`);
+check('the edit is really on disk', readFileSync(target, 'utf8').includes('Charge the card'));
+
+rmSync(sandboxRoot, { recursive: true, force: true });
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -166,8 +166,34 @@ export async function scoreAll(beforeXml, afterXml, opts = {}) {
     lintClean(beforeXml, { hasDI: /BPMNShape/.test(beforeXml), config: { extends: 'bpmnlint:recommended' } }),
     noCollateral(beforeXml, afterXml, opts),
   ]);
-  const introduced = styleAfter.errors.length - styleBefore.errors.length;
-  const g3 = { ok: hard.ok && introduced <= 0, correctness: hard, styleDelta: introduced, styleErrors: styleAfter.errors.length };
+  // ADR-006, as amended. This used to be a COUNT subtraction, and because F5 measured
+  // 13 of 22 corpus files already failing `recommended`, an edit that incidentally
+  // cleared one pre-existing style error while introducing a `no-disconnected` scored
+  // zero and passed. That mattered more than it sounds: `no-disconnected` lives only in
+  // `recommended`, `correctness` has no such rule, the XSD makes the node side of
+  // adjacency optional, and fingerprint() never reads incoming/outgoing — so this one
+  // comparison was the only thing in the whole scorer standing between a model and a
+  // violation of F8's dual-adjacency invariant.
+  //
+  // Now it compares multisets of `rule:elementId` identities. Any newly introduced
+  // instance fails, regardless of what else the edit happened to fix.
+  const identity = (e) => `${e.rule}:${e.id ?? ''}`;
+  const had = new Map();
+  for (const e of styleBefore.errors ?? []) had.set(identity(e), (had.get(identity(e)) ?? 0) + 1);
+  const introducedList = [];
+  for (const e of styleAfter.errors ?? []) {
+    const k = identity(e);
+    if (had.get(k)) had.set(k, had.get(k) - 1);
+    else introducedList.push(k);
+  }
+  const introduced = introducedList.length;
+  const g3 = {
+    ok: hard.ok && introduced === 0,
+    correctness: hard,
+    styleDelta: introduced,
+    introduced: introducedList,
+    styleErrors: (styleAfter.errors ?? []).length,
+  };
   const g5 = diffSanity(beforeXml, afterXml);
   const gates = { parses: g1, xsdValid: g2, lintClean: g3, noCollateral: g4, diffSanity: g5 };
   const passed = [g1.ok, g2.ok, g3.ok, g4.ok, g5.rigid].filter(Boolean).length;
