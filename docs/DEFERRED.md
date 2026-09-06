@@ -12,15 +12,15 @@ would freeze vocabulary before the bake-off finishes.
 **Trigger:** before publishing the library or exposing patch operations through MCP. Add
 strict discriminated operation types without introducing a second implementation tree.
 
-## Complete BPMN reference-integrity validation
+## Cross-file references
 
-The corpus gate proves parsing, XSD validity, recommended bpmnlint rules, and measured
-diff properties independently. XSD validation does not resolve every BPMN reference, so
-the repository does not yet claim a complete cross-reference integrity gate.
+`calledElement` on a call activity, and `structureRef` on an item definition, may legitimately
+name something in another file. The reference gate is single-file, so it does not judge them —
+a dangling `calledElement` is reported by nothing today.
 
-**Trigger:** before any patched document can be written to disk or returned by a public
-API. Validate all BPMN references explicitly and reject dangling or cross-scope links
-before publishing the result.
+**Trigger:** the first command that opens more than one `.bpmn` at a time (a workspace, or
+`extract` minting a called process). Resolve them across the loaded set and report what is
+missing from it, without claiming anything about files that were never opened.
 
 ## CLI and atomic file replacement
 

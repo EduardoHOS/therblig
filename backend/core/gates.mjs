@@ -11,7 +11,8 @@
 // output, so callers pass { hasDI } and we skip those rules when DI is absent.
 import { BpmnModdle } from 'bpmn-moddle';
 import { readFileSync } from 'node:fs';
-import { walk } from './document.mjs';
+import { containerOf, walk } from './document.mjs';
+import { block } from './registry.mjs';
 import Linter from 'bpmnlint/lib/linter.js';
 import NodeResolver from 'bpmnlint/lib/resolver/node-resolver.js';
 import * as xmllint from 'xmllint-wasm';
@@ -72,6 +73,68 @@ export async function lintClean(xml, { hasDI = true, config = { extends: 'bpmnli
   } catch (e) {
     return { ok: false, errors: [{ rule: 'linter', message: e.message.slice(0, 200) }] };
   }
+}
+
+// Gate 6. XSD validity is not reference integrity and must never be reported as if it were.
+// Measured against these seven broken documents: every one is XSD-valid and passes
+// bpmnlint:correctness, and none of them is caught by anything else. A duplicate id is the one
+// case the XSD's ID type does catch, so it is deliberately not a rule here.
+//
+// moddle drops a reference it cannot resolve rather than keeping the raw name, so a dangling
+// reference reaches us as an absent one — which is why "required and missing" is the same finding
+// as "points at nothing".
+const BOUNDARY = block('boundary').bpmn;
+const REQUIRED_REFS = {
+  'bpmn:SequenceFlow': ['sourceRef', 'targetRef'],
+  'bpmn:MessageFlow': ['sourceRef', 'targetRef'],
+  [BOUNDARY]: ['attachedToRef'],
+  'bpmndi:BPMNShape': ['bpmnElement'],
+  'bpmndi:BPMNEdge': ['bpmnElement'],
+};
+
+const referenceKey = (finding) => JSON.stringify(finding);
+
+export async function references(xml) {
+  const { rootElement } = await new BpmnModdle().fromXML(xml);
+  const findings = [];
+
+  for (const el of walk(rootElement)) {
+    if (!el.id || !el.$type) continue;
+
+    for (const attr of REQUIRED_REFS[el.$type] ?? []) {
+      if (!el[attr]) findings.push({ rule: 'unresolved-reference', id: el.id, attr });
+    }
+
+    // Only a message flow may cross a container; a sequence flow may not, and neither may the
+    // attachment of a boundary event to its host.
+    if (el.$type === 'bpmn:SequenceFlow' && el.sourceRef && el.targetRef) {
+      const from = containerOf(el.sourceRef);
+      const to = containerOf(el.targetRef);
+      if (from !== to || from !== containerOf(el)) {
+        findings.push({ rule: 'flow-crosses-container', id: el.id, from, to });
+      }
+    }
+    if (el.$type === BOUNDARY && el.attachedToRef) {
+      const host = containerOf(el.attachedToRef);
+      if (host !== containerOf(el)) {
+        findings.push({ rule: 'boundary-outside-host', id: el.id, host });
+      }
+    }
+    if (el.$type === 'bpmn:Lane') {
+      const scope = containerOf(el);
+      for (const node of el.flowNodeRef ?? []) {
+        if (containerOf(node) !== scope) {
+          findings.push({ rule: 'lane-outside-process', id: el.id, node: node.id });
+        }
+      }
+    }
+    // A default flow that does not leave the element routes nothing.
+    if (el.default && !(el.outgoing ?? []).includes(el.default)) {
+      findings.push({ rule: 'default-not-outgoing', id: el.id, flow: el.default.id });
+    }
+  }
+
+  return { ok: findings.length === 0, findings };
 }
 
 // Structural fingerprint used by gate 4. Order-independent so serialization
@@ -153,7 +216,7 @@ export function diffSanity(beforeXml, afterXml) {
 // did this edit introduce style errors that were not already there?
 export async function scoreAll(beforeXml, afterXml, opts = {}) {
   const g1 = await parses(afterXml);
-  if (!g1.ok) return { gates: { parses: g1 }, passed: 0, of: 5 };
+  if (!g1.ok) return { gates: { parses: g1 }, passed: 0, of: 6 };
   const hasDI = /BPMNShape/.test(afterXml);
   const [g2, hard, styleAfter, styleBefore, g4] = await Promise.all([
     xsdValid(afterXml),
@@ -165,7 +228,15 @@ export async function scoreAll(beforeXml, afterXml, opts = {}) {
   const introduced = styleAfter.errors.length - styleBefore.errors.length;
   const g3 = { ok: hard.ok && introduced <= 0, correctness: hard, styleDelta: introduced, styleErrors: styleAfter.errors.length };
   const g5 = diffSanity(beforeXml, afterXml);
-  const gates = { parses: g1, xsdValid: g2, lintClean: g3, noCollateral: g4, diffSanity: g5 };
-  const passed = [g1, g2, g3, g4, g5].filter((gate) => gate.ok).length;
-  return { gates, passed, of: 5 };
+  // Differential, for the same reason bpmnlint:recommended is (ADR-006): an inherited file may
+  // carry findings of its own — C.7.0 ships a BPMNEdge with no bpmnElement — and blocking every
+  // edit to it would punish the edit for the input's pre-existing state. The question is whether
+  // THIS edit broke a reference.
+  const [refsBefore, refsAfter] = await Promise.all([references(beforeXml), references(afterXml)]);
+  const known = new Set(refsBefore.findings.map(referenceKey));
+  const brokenHere = refsAfter.findings.filter((finding) => !known.has(referenceKey(finding)));
+  const g6 = { ok: brokenHere.length === 0, introduced: brokenHere, findings: refsAfter.findings };
+  const gates = { parses: g1, xsdValid: g2, references: g6, lintClean: g3, noCollateral: g4, diffSanity: g5 };
+  const passed = [g1, g2, g3, g4, g5, g6].filter((gate) => gate.ok).length;
+  return { gates, passed, of: 6 };
 }

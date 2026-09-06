@@ -195,3 +195,43 @@ Measured on incremental placement across four real files:
 
 All four stayed XSD-valid, `bpmnlint:correctness`-clean, introduced no new style
 errors, and ended at 100% DI coverage.
+
+## F10 — nothing in the toolchain checks a BPMN reference, and the corpus is 21/22 clean
+
+Every case below is a hand-built document that is **XSD-valid and passes `bpmnlint:correctness`**.
+The probe is `backend/test/unit/references.test.mjs`, which asserts both of those before asserting
+that the reference gate catches the break — a rule that another gate already covers does not
+belong in this one.
+
+| broken reference | XSD | bpmnlint | `references` |
+|---|---|---|---|
+| sequence flow whose target does not exist | passes | passes | **catches** |
+| boundary event attached to a missing id | passes | passes | **catches** |
+| `BPMNEdge`/`BPMNShape` drawn for a missing element | passes | passes | **catches** |
+| sequence flow reaching into a subprocess | passes | passes | **catches** |
+| boundary event whose host is in another container | passes | passes | **catches** |
+| lane claiming a node from another process | passes | passes | **catches** |
+| gateway default flow that does not leave it | passes | passes | **catches** |
+| duplicate element id | **catches** | passes | not a rule |
+
+Duplicate ids are the XSD's job (the `ID` type) and are deliberately absent from the gate.
+`calledElement` is also absent: a call activity legitimately names a process in another file, so
+a single-file gate cannot judge it.
+
+### The corpus
+
+| measure | result |
+|---|---|
+| files with no reference findings | **21 / 22** |
+| `miwg/C.7.0` | one `BPMNEdge` with no `bpmnElement` |
+
+`C.7.0`'s orphan edge is XSD-legal — `bpmnElement` is optional in BPMNDI — and it is why the gate
+is **differential** inside `scoreAll`, the same bargain as `bpmnlint:recommended` in ADR-006:
+an edit is judged on the references it broke, never on the ones it inherited. The absolute
+`references()` export still reports everything, which is what a `lint` command wants.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/references.test.mjs
+```

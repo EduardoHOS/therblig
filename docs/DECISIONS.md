@@ -202,3 +202,23 @@ source byte-identical. Removing the isolation fails it.
 
 **No `rev` yet.** The design pairs proposals with a revision handle, but no store exists: that
 arrives with the MCP server, and a handle with no store to key would be a speculative field.
+
+## ADR-015 — Reference integrity is its own gate, and it is differential
+
+`references(xml)` resolves every BPMN reference and checks scope: a sequence flow may not cross a
+container, a boundary event may not attach across one, a lane may not claim a node from another
+process, and a default flow must leave the element that names it. Only a message flow may cross.
+
+**Rests on:** F10 — seven broken documents, each XSD-valid and `bpmnlint:correctness`-clean, and
+none of them caught by anything else. This is the measured form of the invariant that XSD validity
+must never be reported as complete reference integrity.
+
+**Differential inside `scoreAll`, absolute on its own.** `miwg/C.7.0` ships a `BPMNEdge` with no
+`bpmnElement`, which BPMNDI permits; blocking every edit to that file would repeat the mistake
+ADR-006 already names. A proposal fails on what it broke, not on what it inherited.
+
+**Not rules here:** duplicate ids (the XSD's `ID` type catches them) and `calledElement` (a call
+activity may legitimately name a process in another file — a workspace concern, not a file one).
+
+**Reverses if:** a corpus file trips a scope rule that BPMN actually permits. The gate is then too
+strict and the rule, not the file, is wrong.

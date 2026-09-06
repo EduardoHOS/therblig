@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   diCoverage,
   insertAfter,
+  references,
   project,
   propose,
   serialize,
@@ -51,6 +52,7 @@ test('a proposal reports every gate, and the diff it measured', async () => {
   assert.deepEqual(Object.keys(result.gates), [
     'parses',
     'xsdValid',
+    'references',
     'lintClean',
     'noCollateral',
     'diffSanity',
@@ -115,4 +117,33 @@ test('a proposal reports the DI it could not place, for old gaps and new element
   // file's own pre-existing gap, reported rather than hidden behind a passing XSD gate.
   const missing = new Set(result.gates.diCoverage.missing.map((entry) => entry.id));
   for (const id of envelope.minted) assert.equal(missing.has(id), false, id);
+});
+
+// C.7.0 ships a BPMNEdge with no bpmnElement: XSD-legal, and an orphan the reference gate reports.
+// An edit to that file must not be blamed for it — but must still be blamed for a new one.
+test('a proposal fails on the references it broke, not on the ones it inherited', async () => {
+  const { document } = await normalizedFixture('miwg/C.7.0.bpmn');
+  const inherited = await references(await serialize(document));
+  assert.equal(inherited.ok, false, 'C.7.0 carries a pre-existing orphan edge');
+
+  const activity = '_392c86ba-38b5-4dc9-b98d-f97ad4c2add5';
+  const process = '_4a690dd7-809a-4fa9-ad63-515ac6685375';
+
+  const clean = await propose(document, [{ op: 'set', id: activity, patch: { name: 'Renamed' } }]);
+  assert.equal(clean.gates.references.ok, true);
+  assert.deepEqual(clean.gates.references.introduced, []);
+  assert.deepEqual(clean.gates.references.findings, inherited.findings);
+
+  const broken = await propose(document, [
+    { op: 'add', type: 'boundary', in: process, id: 'Dangling' },
+  ]);
+  assert.equal(broken.gates.references.ok, false);
+  assert.deepEqual(broken.gates.references.introduced, [
+    { rule: 'unresolved-reference', id: 'Dangling', attr: 'attachedToRef' },
+  ]);
+  assert.ok(
+    broken.gates.references.findings.length > broken.gates.references.introduced.length,
+    'the inherited finding is still reported, just not blamed on this edit',
+  );
+  assert.equal(broken.ok, false);
 });

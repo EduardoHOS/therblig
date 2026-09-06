@@ -7,6 +7,7 @@ export {
   lintClean,
   noCollateral,
   parses,
+  references,
   scoreAll,
   xsdValid,
 } from '../../backend/core/gates.mjs';
