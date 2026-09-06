@@ -19,14 +19,16 @@
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=backend/core/**/*.mjs --test-coverage-include=backend/io/**/*.mjs --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100",
     "corpus": "node bench/scorer/baseline.mjs bench/corpus",
-    "check": "npm run lint && npm run types && npm run test:coverage && npm run corpus",
+    "check": "npm run lint && npm run types && npm run test:coverage && npm run corpus && npm run bench:replay",
     "bench:profile": "node bench/corpus/profile.mjs bench/corpus",
     "bench:diff-floor": "node bench/corpus/probe-diff-floor.mjs bench/corpus",
     "bench:layout": "node bench/scorer/probe-layout.mjs bench/corpus",
     "bench:baseline": "node bench/scorer/baseline.mjs bench/corpus",
     "bench:roundtrip": "node bench/scorer/probe-roundtrip.mjs bench/corpus/handmade/zeebe-roundtrip.bpmn",
     "inventory": "node bench/tasks/inventory.mjs bench/corpus",
-    "types": "tsc -p tsconfig.json && tsc -p tsconfig.consumer.json"
+    "types": "tsc -p tsconfig.json && tsc -p tsconfig.consumer.json",
+    "bench:agent": "node --env-file-if-exists=.env bench/harness/run.mjs",
+    "bench:replay": "node bench/harness/replay.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.0.0",
@@ -36,8 +38,10 @@
     "xmllint-wasm": "^5.3.0"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.263",
     "oxlint": "1.81.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "zod": "4.5.4"
   },
   "bin": {
     "treadle": "backend/cli/main.mjs",
