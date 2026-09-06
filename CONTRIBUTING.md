@@ -22,9 +22,14 @@ CommonJS-`require`s an ESM-only `min-dash`; that only resolves where `require(es
 is enabled. See [docs/FINDINGS.md](docs/FINDINGS.md#f6--the-real-reason-for-the-node-2212-floor).
 
 ```bash
-npm install
-npm test
+npm ci
+npm run check
 ```
+
+Product code lives in `backend/core/` and its tests live in `backend/test/`.
+Benchmarks and product tests are deliberately separate. Read [CLAUDE.md](CLAUDE.md)
+before changing the core; its pull request pipeline defines the required search,
+planning, test-first, verification, and review gates.
 
 ## The one rule that matters
 
@@ -43,6 +48,7 @@ Corollaries:
 ## Code conventions
 
 - ES modules, Node built-ins prefixed `node:`.
+- No generic `src/` directory. Code and tests live under their product domain.
 - No dependency on `bpmn-js`, `dmn-js`, `form-js` or `cmmn-js` anywhere under
   `packages/` or `bench/`. Those carry the bpmn.io watermark licence, which is not
   OSI-approved; keeping the core free of them is the point. See

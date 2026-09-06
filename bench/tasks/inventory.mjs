@@ -1,6 +1,6 @@
 // Generates a human-readable inventory of the corpus, so edit tasks can be written
 // against real element names instead of invented ones.
-import { parse, project } from '../arms/ir.mjs';
+import { parse, project } from '../../backend/core/index.mjs';
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, extname, sep } from 'node:path';
 

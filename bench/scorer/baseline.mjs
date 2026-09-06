@@ -4,7 +4,14 @@
 import { parses, xsdValid, lintClean } from './gates.mjs';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, extname, sep } from 'node:path';
-function walk(d, o = []) { for (const e of readdirSync(d)) { const p = join(d, e); statSync(p).isDirectory() ? walk(p, o) : extname(p) === '.bpmn' && o.push(p); } return o; }
+function walk(directory, files = []) {
+  for (const entry of readdirSync(directory)) {
+    const path = join(directory, entry);
+    if (statSync(path).isDirectory()) walk(path, files);
+    else if (extname(path) === '.bpmn') files.push(path);
+  }
+  return files;
+}
 const p = (s, n) => String(s ?? '').padEnd(n);
 console.log(p('file', 30) + p('parse', 8) + p('xsd', 8) + p('lint', 8) + 'lint errors');
 console.log('-'.repeat(90));

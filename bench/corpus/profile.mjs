@@ -41,7 +41,7 @@ function tally(root) {
       if (t === 'bpmn:MessageFlow') counts.msgFlows++;
       if (t === 'bpmn:SubProcess' || t === 'bpmn:AdHocSubProcess') counts.sub++;
       if (t === 'bpmn:BoundaryEvent') counts.boundary++;
-      if (/Gateway$/.test(t)) counts.gateways++;
+      if (t.endsWith('Gateway')) counts.gateways++;
       if (t === 'bpmndi:BPMNShape') counts.shapes++;
       if (t === 'bpmndi:BPMNEdge') counts.edges++;
       if (t === 'bpmn:ExtensionElements') counts.extensions++;

@@ -1,2 +1,2 @@
-// See ir.mjs — incremental DI placement now lives in packages/therblig/src/place.mjs.
-export { placeNew, diCoverage } from '../../packages/therblig/src/place.mjs';
+// Compatibility entrypoint for the structured benchmark arm.
+export { diCoverage, placeNew } from '../../backend/core/index.mjs';
