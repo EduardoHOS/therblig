@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 
 import type { Entry } from '@/lib/workspace';
+import { processHref } from '@/lib/library.mjs';
 
 /**
  * The workspace, always to hand. Reviewing one process almost always means opening the next one,
@@ -62,7 +63,7 @@ export function FileRail({ files, current }: { files: Entry[]; current?: string 
           return (
             <li key={file.path}>
               <Link
-                href={`/p/${file.path}`}
+                href={processHref(file.path)}
                 aria-current={here ? 'page' : undefined}
                 className={`block rounded-md px-2 py-1.5 ${
                   here ? 'bg-sunk text-ink' : 'text-ink-2 hover:bg-sunk/60'
