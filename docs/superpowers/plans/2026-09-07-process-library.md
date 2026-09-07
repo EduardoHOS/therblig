@@ -13,7 +13,7 @@ Replace the explanatory landing page with a working process library. Keep the ex
 - [x] Review: inspect the complete diff and request an independent read-only code review; fix material findings.
 - [x] Local delivery: leave reviewable changes in the existing checkout and report how to preview with `make dev`.
 
-The user subsequently requested a commit and PR. Remote inspection found that the repository was renamed to `EduardoHOS/therblig` and current `main` diverges from this local Studio implementation. Publishing is pending the choice between adapting the frontend to current main or including the preceding local implementation history.
+The user subsequently requested a commit and PR. Remote inspection found that the repository was renamed to `EduardoHOS/therblig` and current `main` diverges from this local Studio implementation. The user explicitly chose to publish the preceding 22 local commits together with the home redesign. The broader PR targets `main` as a draft; reconciling the two implementations remains a merge prerequisite, not a claim established by the branch's passing tests.
 
 ## Acceptance
 
