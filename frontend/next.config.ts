@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next';
 
-// treadle is linked from the repository root, so the bundler resolves the symlink and stops
+// therblig is linked from the repository root, so the bundler resolves the symlink and stops
 // seeing a package — which is why `serverExternalPackages` alone does not hold it. Keeping the
 // symlinked path lets it match, and the explicit externals cover the build either way.
 //
@@ -10,7 +10,7 @@ import type { NextConfig } from 'next';
 //
 // It has to stay out of the bundle: it is ESM, it reads the OMG schemas off disk through
 // import.meta.url, and xmllint-wasm loads a .wasm. All of that belongs in the Node runtime.
-const EXTERNAL = ['treadle', 'bpmn-moddle', 'bpmnlint', 'xmllint-wasm', 'min-dash', 'moddle'];
+const EXTERNAL = ['therblig', 'bpmn-moddle', 'bpmnlint', 'xmllint-wasm', 'min-dash', 'moddle'];
 
 const config: NextConfig = {
   // A production build writes the same directory a running `next dev` is serving from, and replaces

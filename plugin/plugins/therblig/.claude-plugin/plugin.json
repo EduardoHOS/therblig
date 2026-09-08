@@ -1,0 +1,8 @@
+{
+  "name": "therblig",
+  "version": "0.1.0",
+  "description": "BPMN 2.0 for agents: a compact projection to reason over, a linter that teaches the rule it enforces, and edits that refuse to change anything you did not ask for.",
+  "author": { "name": "EduardoHOS" },
+  "license": "Apache-2.0",
+  "keywords": ["bpmn", "process", "workflow", "diagram"]
+}

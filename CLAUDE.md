@@ -1,34 +1,37 @@
 # CLAUDE.md
 
-Guidance for working in Treadle. These rules describe how the repository is built and
+Guidance for working in therblig. These rules describe how the repository is built and
 reviewed; they are requirements, not suggestions.
 
 ## What this is
 
-Treadle is an offline, engine-neutral BPMN 2.0 editing core. It is intended to let a CLI,
+therblig is an offline, engine-neutral BPMN 2.0 editing core. It is intended to let a CLI,
 an MCP server, and other callers read, explain, lint, and safely edit existing `.bpmn`
 files without regenerating the whole diagram.
 
-Status matters: the repository is still in its benchmark-first phase. `backend/core/`
-contains the promoted structured-editing mechanism; the CLI, MCP server, and published
-library do not exist yet. Do not describe planned surfaces as shipped.
+Status matters: the library, CLI, MCP servers and local Studio exist in this repository.
+Nothing is published to npm. Historical benchmarks are evidence for their recorded
+revision, not an automatic claim about the merged product.
 
 ## Layout
 
 - `backend/core/` — the functional product core. No filesystem, CLI, network, or MCP I/O.
-- `backend/io/` — the only place that touches a filesystem: confinement and atomic replacement.
+- `backend/oracle/` — independent validation and semantic diff; pure tree inspection.
+- `backend/render/` — the receipt SVG renderer, using the document’s DI coordinates.
+- `backend/io/` — filesystem confinement, revisions, schema validation and atomic replacement.
 - `backend/cli/` — argument parsing and presentation. No product logic of its own.
 - `backend/contracts/` — a TypeScript consumer of the emitted `.d.mts`. Checked by `tsc`,
   never executed, so it lives outside `backend/test/`.
-- `backend/mcp/` — the stateless stdio server: handles, revisions, and the risk policy.
-  The only place that knows the protocol exists.
-- `backend/test/` — all tests for the backend core, grouped by test kind.
+- `backend/mcp/` — the path-addressed and governed stdio callers; protocol handling,
+  revisions, and the governed caller’s handles and risk policy stay here.
+- `backend/test/` — backend tests grouped by kind, including unit, integration, smoke and e2e.
+- `frontend/` — the local Studio workspace, consuming the core and its generated types.
 - `bench/` — corpus, benchmark arms, probes, scorers, and task definitions.
 - `docs/` — empirical findings, architecture decisions, deferred work, and plans.
 - `third_party/` — vendored, provenance-recorded schemas.
 
 Never add a generic `src/` directory. A product domain owns its code and tests directly:
-`backend/`, or `frontend/` if a real frontend is introduced. Do not create empty domain,
+`backend/` and `frontend/`. Do not create empty domain,
 package, adapter, CLI, MCP, or infrastructure scaffolds.
 
 ## The one rule
@@ -43,9 +46,9 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
 - `projection.mjs` owns the compact coordinate-free IR shown to an agent.
 - `adjacency.mjs` is the only module allowed to assign `sourceRef`, `targetRef`,
   `incoming`, or `outgoing`.
-- `patch.mjs` owns the four patch operations: `add`, `set`, `del`, and `connect`.
+- `patch.mjs` owns `add`, `set`, `del`, `connect`, `move`, and `message`.
 - `ops.mjs` compiles intent (`insertAfter`, `timeout`, `bypass`, `branch`, …) into plans of
-  those four operations. It reads the IR and never the tree; the envelope's `risk` is computed
+  patch primitives. It reads the IR and never the tree; the envelope's `risk` is computed
   from the plan, and an op guarantees an exact inverse or refuses.
 - `placement.mjs` adds DI for new elements and measures DI coverage.
 - `simulate.mjs` runs the decidable subset as discrete-event tokens; `diff.mjs` turns two
@@ -59,8 +62,9 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
   builds. `registry.mjs` tabulates them and is the closed node vocabulary; a type named outside
   `blocks/` fails the architecture test. `render.mjs` keeps no type table of its own — it asks the
   registry, so a new block is drawable or it is a build error.
-- Pools, lanes, message flows, data objects and stores, annotations, groups and associations are
-  projected and drawn, and are deliberately not blocks: they are read, never added.
+- Pools, lanes, message flows, data objects and stores, annotations, groups and associations
+  are projected and drawn without being node blocks. `move` updates lane membership and
+  `message` creates collaboration message flows; data artifacts remain read-only.
 - `index.mjs` is the backend core's public surface.
 
 Benchmark modules may import or re-export the core. The core never imports `bench/`.
@@ -78,7 +82,8 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 - The first normalization may reformat a document; later edits must remain minimal.
 - Errors identify the invalid operation and element without leaking document content.
 - Never overwrite a user's BPMN file after a failed parse, patch, validation, or write.
-- No production code depends on `bpmn-js`, `dmn-js`, `form-js`, or `cmmn-js`.
+- Published runtime dependencies must satisfy the SPDX allowlist and licence-text scan
+  in `scripts/licence-guard.mjs`; watermark-bearing toolkits are excluded (ADR-009).
 
 ## Code conventions
 
@@ -98,7 +103,7 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 ## Tests
 
 - Use the built-in `node:test` runner and `node:assert/strict`.
-- Tests live in `backend/test/{unit,integration,property,smoke}` as each kind becomes real.
+- Tests live in `backend/test/{unit,integration,property,smoke,e2e}` as each kind becomes real.
 - Unit tests are pure and fast. Integration tests exercise real parsers, validators, and
   committed BPMN fixtures. Smoke tests spawn the actual CLI/MCP entrypoints; because coverage is
   not collected across processes, the smoke suite — not a line count — is the CLI's gate.
@@ -106,7 +111,7 @@ Benchmark modules may import or re-export the core. The core never imports `benc
   not a neighboring helper that cannot reproduce the failure.
 - Cover happy paths, malformed inputs, unknown operations, missing references, duplicate
   ids, graph invariants, round-trips, large files, and dependency failures where relevant.
-- Backend core coverage is 100% for lines, branches, and functions. If a line is truly
+- Backend core and I/O coverage is 100% for lines, branches, and functions. If a line is truly
   unreachable or platform-specific, redesign it or explain the measured exception before
   lowering a gate.
 - Keep fixtures deterministic. New external fixtures require provenance and a compatible
@@ -129,8 +134,8 @@ npm run test:coverage
 npm run corpus
 npm run check
 
-npx treadle explain bench/corpus/miwg/C.9.0.bpmn
-npx treadle apply file.bpmn --op timeout --args '{"on":"X","after":"P3D","to":"Y","name":"Late"}'
+node backend/cli/main.mjs explain bench/corpus/miwg/C.9.0.bpmn
+node backend/cli/main.mjs apply file.bpmn --op timeout --args '{"on":"X","after":"P3D","to":"Y","name":"Late"}'
 ```
 
 `npm run check` — `make check` — is the local and CI quality gate. Do not call a change complete

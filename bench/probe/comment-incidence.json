@@ -1,0 +1,72 @@
+{
+  "measured": "2026-09-04",
+  "target": 220,
+  "maxPerRepo": 3,
+  "queries": [
+    "bpmndi in:file extension:bpmn",
+    "camunda in:file extension:bpmn",
+    "zeebe in:file extension:bpmn",
+    "flowable in:file extension:bpmn",
+    "activiti in:file extension:bpmn",
+    "signavio in:file extension:bpmn",
+    "collaboration in:file extension:bpmn",
+    "userTask in:file extension:bpmn"
+  ],
+  "repositories": 161,
+  "fetched": 220,
+  "failed": 0,
+  "withComment": 15,
+  "headerOnly": 6,
+  "withBodyComment": 9,
+  "withDoctype": 3,
+  "withPI": 0,
+  "bodyExamples": [
+    {
+      "repo": "amir0135/AI-Assistant",
+      "path": "8km2pfs7.bpmn",
+      "sample": "<!-- Lanes -->"
+    },
+    {
+      "repo": "amir0135/AI-Assistant",
+      "path": "src/8km2pfs7.bpmn",
+      "sample": "<!-- Lanes -->"
+    },
+    {
+      "repo": "liquio/liquio",
+      "path": "examples/workflow-1000.bpmn",
+      "sample": "<!-- PDF HEADER -->"
+    },
+    {
+      "repo": "amir0135/Financial-Statement-Review-Multi-Agent-Solution",
+      "path": "credit-financial-review.bpmn",
+      "sample": "<!-- Lane Set: Departments / Functions -->"
+    },
+    {
+      "repo": "luwju/eman",
+      "path": "camunda/abc.bpmn",
+      "sample": "<!-- FLOWS -->"
+    },
+    {
+      "repo": "AnastasiyaDmrsk/from-reg-text-to-models",
+      "path": "eval/1_description_and_bpmn/results/AutoBPMN/process_model_raw/raw_text/run_2/1_AI_Act.bpmn",
+      "sample": "<!-- Semantic Process Definition (BPMN Model) -->"
+    },
+    {
+      "repo": "Omni-Saude/Maezo",
+      "path": "src/healthcare_platform/clinical_operations/bpmn/SP-CO-012_Post_Discharge_Followup.bpmn",
+      "sample": "<!-- Process Variables: - tenantId: string - patientId: string - dischargeId: string - channelPrefer"
+    },
+    {
+      "repo": "jackliu0/com.actionsoft.apps.poc.api",
+      "path": "repository/process/obj_f62e53c7e50a4f57b9ce8c3e72f8231d/obj_f62e53c7e50a4f57b9ce8c3e72f8231d_5.bpmn",
+      "sample": "<!--http://www.omg.org/spec/BPMN/20100524/MODEL-->"
+    },
+    {
+      "repo": "luwju/eman",
+      "path": "camunda/abc.bpmn",
+      "sample": "<!-- FLOWS -->"
+    }
+  ],
+  "rate": 0.04090909090909091,
+  "verdict": "WARN AND PROCEED (ADR-004 clause 2 as written)"
+}

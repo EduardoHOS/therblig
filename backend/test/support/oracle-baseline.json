@@ -1,0 +1,12 @@
+{
+  "miwg/A.2.0.bpmn": {
+    "UNLABELLED_BRANCH": 3
+  },
+  "miwg/B.1.0.bpmn": {
+    "UNLABELLED_BRANCH": 4
+  },
+  "miwg/B.2.0.bpmn": {
+    "MULTIPLE_START_EVENTS": 2,
+    "UNLABELLED_BRANCH": 3
+  }
+}

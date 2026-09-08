@@ -20,7 +20,8 @@ async function bpmnFiles(directory) {
 
 test('the functional core round-trips and projects every corpus document', async () => {
   const files = await bpmnFiles(CORPUS_ROOT);
-  assert.equal(files.length, 23, 'a new fixture needs a PROVENANCE entry, so it is counted here');
+  // 21 MIWG models and three hand-authored fixtures, each recorded in PROVENANCE.md.
+  assert.equal(files.length, 24, 'a new fixture needs a PROVENANCE entry, so it is counted here');
 
   for (const file of files) {
     const xml = await readFile(file, 'utf8');

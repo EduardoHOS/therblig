@@ -106,8 +106,17 @@ test('a proposal reports the DI it could not place, for old gaps and new element
     to: '_94efa7e0-2322-4fc3-a5bf-6c6296488927',
   });
 
+  // An undrawn process owes no DI. Remove a real edge from the drawn process instead,
+  // so this test exercises an actual pre-existing gap while the timeout still has a host.
+  assert.equal(diCoverage(document.definitions).ok, true);
+  const plane = document.definitions.diagrams[0].plane;
+  const edge = plane.planeElement.findIndex((element) => element.$type === 'bpmndi:BPMNEdge');
+  assert.ok(edge >= 0);
+  const missingId = plane.planeElement[edge].bpmnElement.id;
+  plane.planeElement.splice(edge, 1);
   const before = diCoverage(document.definitions);
-  assert.equal(before.ok, false, 'B.1.0 already has DI gaps');
+  assert.equal(before.ok, false);
+  assert.ok(before.missing.some((entry) => entry.id === missingId));
 
   const result = await propose(document, envelope.plan);
 

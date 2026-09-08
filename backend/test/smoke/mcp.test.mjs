@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { cp, mkdtemp, readFile, readdir } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import { cp, mkdtemp, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 const SERVER = new URL('../../mcp/server.mjs', import.meta.url).pathname;
 const CORPUS = new URL('../../../bench/corpus/', import.meta.url).pathname;
@@ -16,8 +17,8 @@ const META = {
 };
 
 // A JSON-RPC client over stdio, so the test drives the real entrypoint the way a client does.
-function client(cwd) {
-  const child = spawn(process.execPath, [SERVER], { cwd });
+function client(cwd, server = SERVER) {
+  const child = spawn(process.execPath, [server], { cwd });
   const pending = new Map();
   const stdout = [];
   let stderr = '';
@@ -71,6 +72,69 @@ async function workspace(fixture = 'handmade/zeebe-roundtrip.bpmn') {
 }
 
 const read = (cwd) => readFile(join(cwd, 'p.bpmn'), 'utf8');
+
+test('importing the public MCP module exports both factories without serving stdio', async () => {
+  const cwd = await workspace();
+  const source = `import { build, createServer } from ${JSON.stringify(pathToFileURL(SERVER).href)};
+process.stdout.write(JSON.stringify([typeof build, typeof createServer]));`;
+  const importer = join(cwd, 'import.mjs');
+  await writeFile(importer, source);
+
+  for (const args of [['--input-type=module', '--eval', source], [importer]]) {
+    const result = spawnSync(process.execPath, args, {
+      cwd,
+      encoding: 'utf8',
+      timeout: 10000,
+      input: `${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: META } })}\n`,
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, '["function","function"]');
+    assert.equal(result.stderr, '');
+  }
+});
+
+test('the compatibility entrypoint also serves through a package-bin symlink', { timeout: 10000 }, async () => {
+  const cwd = await workspace();
+  const linked = join(cwd, 'treadle-mcp');
+  await symlink(SERVER, linked);
+  const mcp = client(cwd, linked);
+  try {
+    const { result } = await mcp.list();
+    assert.ok(result.tools.some((tool) => tool.name === 'open'));
+    assert.ok(result.tools.some((tool) => tool.name === 'publish'));
+    assert.ok(result.tools.every((tool) => !tool.name.startsWith('bpmn_')));
+  } finally {
+    mcp.close();
+  }
+});
+
+test('stdin ESM scripts can import the public server without treating stdin as a file', () => {
+  const source = `import { build, createServer } from ${JSON.stringify(pathToFileURL(SERVER).href)};
+process.stdout.write(JSON.stringify([typeof build, typeof createServer]));`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-'], {
+    encoding: 'utf8', timeout: 10000, input: source,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '["function","function"]');
+  assert.equal(result.stderr, '');
+});
+
+test('a removed host entrypoint does not prevent importing the public server', async () => {
+  const cwd = await workspace();
+  const source = `process.argv[1] = ${JSON.stringify(join(cwd, 'missing.mjs'))};
+const { build, createServer } = await import(${JSON.stringify(pathToFileURL(SERVER).href)});
+process.stdout.write(JSON.stringify([typeof build, typeof createServer]));`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
+    encoding: 'utf8', timeout: 10000,
+    input: `${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: META } })}\n`,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '["function","function"]');
+  assert.equal(result.stderr, '');
+});
 
 test('tools/list is deterministic and offers reading, every op, and publishing', async () => {
   const cwd = await workspace();

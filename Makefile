@@ -50,7 +50,7 @@ corpus: node_modules      ## Score every fixture in bench/corpus
 
 build: node_modules       ## Emit the contracts, then build the Studio — leaves a running dev alone
 	$(NPM) run types
-	NEXT_DIST_DIR=.next-build $(NPM) run build --workspace @treadle/studio
+	NEXT_DIST_DIR=.next-build $(NPM) run build --workspace @therblig/studio
 
 mcp: node_modules         ## The MCP server on stdio — for a client to spawn, not for a terminal
 	$(NODE) backend/mcp/server.mjs

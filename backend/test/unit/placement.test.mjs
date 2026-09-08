@@ -26,7 +26,7 @@ const MINIMAL_DI = `<?xml version="1.0" encoding="UTF-8"?>
   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-  id="Definitions_1" targetNamespace="https://treadle.dev/test">
+  id="Definitions_1" targetNamespace="https://therblig.dev/test">
   <bpmn:process id="Process_1">
     <bpmn:task id="Task_1" />
   </bpmn:process>
@@ -59,11 +59,11 @@ test('incremental placement keeps real diagrams valid and fully covered', async 
           type: 'user',
           name: 'Inserted step',
           in: container,
-          id: 'TreadleInserted',
+          id: 'TherbligInserted',
           between: [source, target],
         },
       ]);
-      const touched = ['TreadleInserted', ...created];
+      const touched = ['TherbligInserted', ...created];
       const placement = placeNew(document, touched);
       const after = await serialize(document);
       const score = await scoreAll(before, after, {
@@ -83,7 +83,7 @@ test('incremental placement keeps real diagrams valid and fully covered', async 
 test('placement reports a document with no diagram plane', async () => {
   const document = await parse(`<?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
-  id="Definitions_1" targetNamespace="https://treadle.dev/test">
+  id="Definitions_1" targetNamespace="https://therblig.dev/test">
   <process id="Process_1">
     <task id="Task_1" />
   </process>

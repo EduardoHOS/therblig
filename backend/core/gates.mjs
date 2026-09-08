@@ -259,8 +259,27 @@ export async function scoreAll(beforeXml, afterXml, opts = {}) {
     lintClean(beforeXml, { hasDI: /BPMNShape/.test(beforeXml), config: { extends: 'bpmnlint:recommended' } }),
     noCollateral(beforeXml, afterXml, opts),
   ]);
-  const introduced = styleAfter.errors.length - styleBefore.errors.length;
-  const g3 = { ok: hard.ok && introduced <= 0, correctness: hard, styleDelta: introduced, styleErrors: styleAfter.errors.length };
+  // ADR-006: repairing an inherited error must not cancel a new error elsewhere.
+  // Compare rule/element multisets so repeated findings consume only matching occurrences.
+  const identity = (error) => `${error.rule}:${error.id ?? ''}`;
+  const remaining = new Map();
+  for (const error of styleBefore.errors) {
+    const key = identity(error);
+    remaining.set(key, (remaining.get(key) ?? 0) + 1);
+  }
+  const introduced = [];
+  for (const error of styleAfter.errors) {
+    const key = identity(error);
+    if (remaining.get(key)) remaining.set(key, remaining.get(key) - 1);
+    else introduced.push(key);
+  }
+  const g3 = {
+    ok: hard.ok && introduced.length === 0,
+    correctness: hard,
+    styleDelta: introduced.length,
+    introduced,
+    styleErrors: styleAfter.errors.length,
+  };
   const g5 = diffSanity(beforeXml, afterXml);
   // Differential, for the same reason bpmnlint:recommended is (ADR-006): an inherited file may
   // carry findings of its own — C.7.0 ships a BPMNEdge with no bpmnElement — and blocking every

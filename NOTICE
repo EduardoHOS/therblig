@@ -1,19 +1,60 @@
-Treadle
-Copyright 2026 Treadle contributors
+therblig
+Copyright 2026 therblig contributors
 
-This product includes software developed at bpmn.io (https://bpmn.io),
-Copyright (c) 2014-present Camunda Services GmbH, licensed under the MIT License:
-bpmn-moddle, moddle, moddle-xml, diagram-js, bpmn-auto-layout. (development only since v0.1.0; not shipped)
+Licensed under the Apache License, Version 2.0. See LICENSE.
 
-This product includes bpmnlint (https://github.com/bpmn-io/bpmnlint),
-Copyright (c) 2018-present bpmn.io Contributors, licensed under the MIT License.
+--------------------------------------------------------------------------------
+Bundled third-party material
+--------------------------------------------------------------------------------
 
-Test fixtures under bench/corpus/miwg/ are reference models from the BPMN Model
-Interchange Working Group (BPMN MIWG) at the Object Management Group,
-https://github.com/bpmn-miwg/bpmn-miwg-test-suite, licensed under
-Creative Commons Attribution 3.0 Unported (CC BY 3.0).
+This section covers material redistributed *inside* this repository, which is the
+material that carries an attribution obligation. Runtime dependencies are resolved
+from npm by the consumer rather than redistributed here; they are enumerated with
+their licences in package-lock.json and checked on every build by
+scripts/licence-guard.mjs (see docs/DECISIONS.md, ADR-009).
 
-Schema files under third_party/omg/ are the machine-readable BPMN 2.0 schemas
-published by the Object Management Group at https://www.omg.org/spec/BPMN/20100501/.
-They are redistributed unmodified. BPMN and OMG are trademarks of the
-Object Management Group.
+BPMN 2.0 XML schemas — third_party/omg/
+  BPMN20.xsd, Semantic.xsd, BPMNDI.xsd, DI.xsd, DC.xsd
+  Published by the Object Management Group (OMG) as part of the BPMN 2.0
+  specification: https://www.omg.org/spec/BPMN/2.0.2/
+  Content is unmodified. Line endings are normalised to LF by .gitattributes.
+  BPMN, OMG and the OMG logo are trademarks of the Object Management Group.
+
+  Note: the terms under which OMG machine-readable specification files may be
+  redistributed are not clearly stated by OMG, and this question is unresolved
+  upstream in the wider open-source community. Recorded as known-unresolved rather
+  than assumed settled. These files are used only by the XSD validation gate, so
+  the exit — should it be needed — is to fetch them at install time or make schema
+  validation opt-in, neither of which changes the product.
+
+BPMN MIWG reference models — bench/corpus/miwg/
+  Reference models from the BPMN Model Interchange Working Group at the Object
+  Management Group.
+  Source:  https://github.com/bpmn-miwg/bpmn-miwg-test-suite
+  Licence: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+           https://creativecommons.org/licenses/by/3.0/
+  Content is unmodified. Line endings are normalised to LF by .gitattributes.
+  Per-file provenance, including the pinned upstream commit, is recorded in
+  bench/corpus/PROVENANCE.md.
+
+--------------------------------------------------------------------------------
+Dependency acknowledgements
+--------------------------------------------------------------------------------
+
+This project uses bpmn-moddle, moddle, moddle-xml and diagram-js from bpmn.io
+(https://bpmn.io), Copyright (c) 2014-present Camunda Services GmbH, under the
+MIT License. It also uses bpmnlint (https://github.com/bpmn-io/bpmnlint),
+Copyright (c) 2018-present bpmn.io Contributors, under the MIT License.
+The benchmark uses bpmn-auto-layout; its package declares MIT but its missing
+licence file is recorded in docs/DECISIONS.md, ADR-005. It is not bundled with
+the published runtime. These acknowledgements do not replace the licence files
+that accompany dependencies installed from npm.
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+BPMN and OMG are trademarks of the Object Management Group. Camunda and Signavio
+are trademarks of Camunda Services GmbH and SAP SE respectively. ARIS is a
+trademark of Software GmbH. therblig is not affiliated with, endorsed by, or
+sponsored by any of them.

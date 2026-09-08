@@ -1,6 +1,6 @@
 # Contributing
 
-Treadle is Apache-2.0 and takes contributions under the **Developer Certificate of
+therblig is Apache-2.0 and takes contributions under the **Developer Certificate of
 Origin**. There is no CLA, and there is no plan to relicense the core — see
 [GOVERNANCE.md](GOVERNANCE.md).
 

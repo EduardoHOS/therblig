@@ -8,7 +8,7 @@ import { Wordmark } from './Brand';
 import { Theme } from './Theme';
 
 import type { Entry, Gate } from '@/lib/workspace';
-import type { IrFlow, IrNode, Projection } from 'treadle';
+import type { IrFlow, IrNode, Projection } from 'therblig';
 
 type Selected = IrNode | IrFlow;
 

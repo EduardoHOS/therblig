@@ -16,8 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 22.12 is the floor: bpmnlint CommonJS-requires an ESM-only min-dash,
-        # which only resolves where require(esm) is enabled. See docs/FINDINGS.md F6.
+        # 22.12 is the chosen supported floor. Test it explicitly alongside current
+        # Node 22 and 24; see ADR-007 for the require(esm) compatibility evidence.
         node: ['22.12', '22', '24']
         os: [ubuntu-latest, windows-latest]
     steps:
@@ -29,6 +29,38 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+  engine-floor:
+    name: engine floor is enforced, not declared
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.10'
+      # The machine that produced F1-F9 was running Node 20.10 against a declared
+      # >=22.12 floor, with no .npmrc. An outside reproducer must fail loudly rather
+      # than silently measure something else, so the failure itself is the test.
+      - name: npm ci must refuse to install under Node 20
+        run: |
+          if npm ci; then
+            echo "::error::npm ci succeeded on Node 20 — engine-strict is not in effect."
+            exit 1
+          fi
+          echo "npm ci refused under Node 20, as intended (EBADENGINE)."
+
+  studio:
+    name: Studio production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run types
+      - run: npm run build --workspace @therblig/studio
+
   licence-guard:
     name: licence guard
     runs-on: ubuntu-latest
@@ -36,24 +68,26 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # The bpmn.io licence is not OSI-approved: it requires a visible watermark on
-      # rendered diagrams. Keeping the core free of those four packages is the whole
-      # enterprise-procurement argument, so it is enforced, not trusted. See ADR-009.
-      - name: no watermark-licensed packages in the dependency tree
+      # ADR-009 as amended. The bpmn.io licence names no packages — it attaches the
+      # obligation to the watermark — so this checks SPDX ids and licence text over
+      # the installed production tree, not a hardcoded list of four names.
+      - run: npm run licence-guard
+
+      # A guard that has never been seen to fail is not known to work. Installing a
+      # package that genuinely carries the clause must turn this job red. The old
+      # name loop passed this exact case: it tested for `form-js`, and the watermarked
+      # package is `@bpmn-io/form-js-viewer`.
+      - name: guard rejects a watermark-licensed package
         run: |
-          set -e
-          found=0
-          for pkg in bpmn-js dmn-js form-js cmmn-js; do
-            if [ -d "node_modules/$pkg" ]; then
-              echo "::error::$pkg is present in the dependency tree. It carries the"
-              echo "::error::bpmn.io watermark licence and must not appear in the core."
-              found=1
-            fi
-          done
-          exit $found
+          npm i --no-save --no-audit --no-fund @bpmn-io/form-js-viewer
+          if npm run licence-guard; then
+            echo "::error::guard passed a package carrying the bpmn.io watermark clause."
+            exit 1
+          fi
+          echo "guard correctly rejected @bpmn-io/form-js-viewer."
 
       # What a consumer installs is the production tree. The bench's devDependencies — the
       # unreleased layouter alpha among them — are ours to carry, not theirs.
@@ -69,6 +103,9 @@ jobs:
           npm install "./$(basename "$tarball")" > /dev/null
           npx treadle lint C.9.0.bpmn
           npx treadle explain C.9.0.bpmn > /dev/null
+          npx therblig verify C.9.0.bpmn
+          npx therblig explain C.9.0.bpmn > /dev/null
+          node --input-type=module -e "import { createServer, build } from 'therblig/mcp'; if (typeof createServer !== 'function' || typeof build !== 'function') process.exit(1)"
           if npm ls --omit=dev --all 2>/dev/null | grep -q bpmn-auto-layout; then
             echo "::error::bpmn-auto-layout is back in the production tree. It is an"
             echo "::error::unreleased alpha with no LICENSE file; see ADR-005."
@@ -82,9 +119,76 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       # Every reference model must still parse and validate. If this breaks, either a
       # dependency regressed or a fixture was modified in place — both are serious.
-      - run: node bench/scorer/baseline.mjs bench/corpus
+      - run: npm run bench:baseline
+      # The oracle over the whole corpus. Exits non-zero on any ERROR-severity finding;
+      # the 12 known warnings are frozen in bench/oracle/baseline.json and drift there
+      # fails `npm test`, so a rule quietly changing meaning cannot pass unnoticed.
+      - run: npm run oracle
+
+      # Every canonical edit, on every file, held to every invariant — and every
+      # receipt re-derived from the two versions it describes. No API key, no network:
+      # a stranger with the repo gets the same numbers we publish.
+      - run: npm run verify:corpus
+
+  package:
+    name: what would ship
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The OMG schemas must be in the tarball and the CC BY 3.0 corpus must not be.
+      - run: npm run pack-audit
+
+      # stdout carries JSON-RPC and nothing else. One console.log anywhere in the
+      # package corrupts the stream for every client, and the failure looks like a
+      # protocol bug rather than a stray debug line — so it is a build failure here.
+      - name: stdout is pure JSON-RPC
+        run: node --test backend/test/e2e/mcp.test.mjs backend/test/smoke/mcp.test.mjs
+
+      # bench/scorer/gates.mjs resolves the schemas from `third_party/omg`, a bare
+      # relative path that works only when the process starts at the repo root. In a
+      # published CLI that is an ENOENT, and xsdValid's catch turns it into "invalid"
+      # for every file on earth. Run the binary from somewhere else and check it still
+      # validates — this job exists for that one bug.
+      - name: the CLI works from outside the repo
+        shell: bash
+        run: |
+          set -e
+          REPO="$PWD"
+          cd "$(mktemp -d)"
+          node "$REPO/backend/cli/bin.mjs" verify "$REPO/bench/corpus/miwg/C.9.1.bpmn"
+          node "$REPO/backend/cli/bin.mjs" lint "$REPO/bench/corpus/miwg/A.1.0.bpmn"
+
+  probes:
+    name: probes (expected RED — measurement, not regression)
+    runs-on: ubuntu-latest
+    # probe-labels and probe-invariants moved into `npm test` when M1 fixed what they
+    # measure, so they now block like any other test. What is left here is the probe
+    # whose finding is a DECISION rather than a bug: ADR-004 chose warn-and-proceed on
+    # comment loss, so probe-conserve is expected to fail and must not gate the build.
+    # It stays visible because the day moddle-xml registers a comment handler, this
+    # turning green is how we find out.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run probe
+        continue-on-error: true

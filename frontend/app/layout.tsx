@@ -12,8 +12,8 @@ import { THEME_KEY } from '@/lib/theme';
 const REMEMBER = `try{if(localStorage.getItem('${THEME_KEY}')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}`;
 
 export const metadata: Metadata = {
-  title: 'Treadle Studio',
-  description: 'Read, review and approve BPMN changes an agent proposed.',
+  title: 'Therblig Studio',
+  description: 'Browse BPMN processes and compare file versions.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -9,7 +9,7 @@ export function Mark({ className = '' }: { className?: string }) {
       viewBox="0 0 24 24"
       className={className}
       role="img"
-      aria-label="Treadle"
+      aria-label="Therblig"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.6"
@@ -29,7 +29,7 @@ export function Wordmark({ subdued = false }: { subdued?: boolean }) {
     <span className="flex items-center gap-2">
       <Mark className={`h-[18px] w-[18px] ${subdued ? 'text-ink-3' : 'text-plot'}`} />
       <span className="text-[13px] font-semibold tracking-tight">
-        Treadle<span className="text-ink-3"> Studio</span>
+        Therblig<span className="text-ink-3"> Studio</span>
       </span>
     </span>
   );

@@ -43,7 +43,9 @@ export function* contained(element) {
 export function index(definitions) {
   const byId = new Map();
   for (const element of walk(definitions)) {
-    if (element.id) byId.set(element.id, element);
+    // Generic vendor attributes named `id` need not be XML IDs. C.8.0 uses one as an
+    // ADONIS reference to its process; indexing it would shadow the actual BPMN container.
+    if (element.id && !element.$descriptor?.isGeneric) byId.set(element.id, element);
   }
   return byId;
 }

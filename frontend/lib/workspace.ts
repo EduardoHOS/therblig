@@ -14,7 +14,7 @@ import {
   review,
   semantics,
   xsdValid,
-} from 'treadle';
+} from 'therblig';
 
 // The workspace is a directory of .bpmn files on this machine. No account, no upload, no server
 // but this one — the files stay where they are and the browser only ever sees a projection.

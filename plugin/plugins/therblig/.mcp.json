@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "therblig": {
+      "command": "npx",
+      "args": ["-y", "-p", "therblig", "therblig-mcp", "--root", "${CLAUDE_PROJECT_DIR}"]
+    }
+  }
+}

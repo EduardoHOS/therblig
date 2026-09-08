@@ -25,3 +25,18 @@ for (const f of walk(process.argv[2] || 'bench/corpus')) {
   if (!b.ok) console.log('    xsd:', (b.errors[0] || '').slice(0, 130));
 }
 console.log(`\n${n} files | parse ${px}/${n} | xsd ${xx}/${n} | lint-clean ${lx}/${n}`);
+
+// Parse and XSD are absolute invariants of the corpus (F2, F7: 22/22 both). If either
+// regresses, a dependency changed under us or a fixture was edited in place. Lint under
+// `recommended` is 9/22 BY DESIGN and must never fail the build — F5 is precisely the
+// finding that the OMG's own reference models violate it 59% of the time, which is why
+// ADR-006 makes recommended a differential gate rather than an absolute one.
+//
+// Until this ran with an exit code, the CI job invoking it could not fail. It was
+// decorative from the first commit.
+const broken = (px < n ? 1 : 0) + (xx < n ? 1 : 0);
+if (broken) {
+  console.log(`\nFAIL: parse ${px}/${n} and xsd ${xx}/${n} must both be ${n}/${n}.`);
+  process.exit(1);
+}
+console.log(`(lint-clean ${lx}/${n} is expected and not a failure — see FINDINGS.md F5.)`);

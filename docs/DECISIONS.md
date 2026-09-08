@@ -1,7 +1,33 @@
 # Architecture decisions
 
 Short records. Each states the decision, what it rests on, and what would reverse it.
-Findings referenced as F1–F7 live in [FINDINGS.md](FINDINGS.md).
+Findings live in [FINDINGS.md](FINDINGS.md).
+
+## Record scope after the Studio merge
+
+The unqualified ADR-001–ADR-012 records below come from `origin/main` at `7722884`.
+The Studio branch at `eee02c3` independently assigned ADR-010–ADR-030. Its distinct
+records are preserved below as **Studio ADR-010–Studio ADR-030**, with references in
+that section qualified to keep the two histories unambiguous. Dated plans elsewhere
+retain their original numbering; read references in those plans in their branch context.
+
+The merged repository is named **therblig** and is not published to npm. It retains
+both callers: the path-addressed `therblig` CLI/MCP and the governed `treadle` CLI/MCP
+used by the Studio branch. ADR-010 rev. 2 describes the path-addressed server; Studio
+ADR-023 describes the governed server. Neither record removes the other caller. Both
+share `backend/core`, including the added `move` and `message` primitives, while the
+Studio keeps its intent operations, simulation, review, conformance and renderer.
+
+`bpmnlint` remains a runtime dependency: the public core exports and both CLI callers
+use it for validation. The Studio branch's attempt to remove it from the production
+tree is superseded by those concrete callers. `bpmn-auto-layout` remains a bench
+dependency, subject to ADR-005's recorded licence limitation. The local frontend is
+private and does not enter the published tarball.
+
+The oracle and the benchmark scorer have different responsibilities. A historical
+record describing one is not evidence that it guards the other. Likewise, recorded
+coverage, corpus totals and preservation measurements describe the revision and
+instrument that produced them; they must be rerun before being claimed for this merge.
 
 ---
 
@@ -21,6 +47,25 @@ moddle tree gives us for free.
 
 **Reverses if:** we find a file where moddle silently drops content on round-trip.
 Guard: the round-trip probe runs over the whole corpus in CI.
+
+**Amended 2026-09-04 (F10).** Known loss: XML comments, DOCTYPE declarations and every
+processing instruction other than the XML declaration are dropped on every round-trip,
+silently, with zero parser warnings — `moddle-xml` registers no saxen handler for
+`comment` or `attention`. Measured incidence: 1 of 22 corpus files (`C.3.0`), in header
+position.
+
+This **bounds** the decision rather than reversing it. moddle remains the only structure
+that preserves unmodelled vendor namespaces, which is the property F1 tested and the one
+that actually matters. therblig warns; it does not refuse. New guard:
+`bench/probe/probe-conserve.mjs`.
+
+The important part is not the loss. **This ADR's stated reversal guard could not detect
+its own reversal condition**: the condition is "moddle silently drops content on
+round-trip", and the named guard is F2's profile, which compares a semantic tally of
+*elements*. A comment was never an element. The file was in the corpus from the start.
+
+**Standing rule, adopted from this:** every ADR's reversal guard must be re-read for
+whether it is capable of observing the condition it claims to watch.
 
 ## ADR-002 — Original XML ids are carried verbatim; we mint ids only for new elements
 
@@ -46,6 +91,14 @@ Also: analysts inherit models far more often than they draw them, and Camunda's 
 "officially supports only modifying diagrams that were created by the BPMN Copilot itself" —
 so inherited files are explicitly unserved by the strongest incumbent.
 
+**Amended 2026-09-04.** The decision stands; the evidence needs version scoping. F4 is a
+measurement of `bpmn-auto-layout@2.0.0-alpha.2` (published 2026-07-24), still the newest
+published build as of today. Every public citation of F4 must name that version.
+
+The load-bearing half is version-independent and is what the wedge actually rests on:
+the `warnings` channel does not signal loss. That is a property of the package's error
+contract, not of which constructs it supports in a given month.
+
 ## ADR-004 — Normalization is Prettier's bargain, stated up front
 
 First edit reformats the file. Every edit after that is minimal.
@@ -53,11 +106,32 @@ First edit reformats the file. Every edit after that is minimal.
 **Rests on:** F2 (1/22 byte-identical, but 22/22 idempotent) and F3 (Camunda-authored
 files cost −1 +2 lines to normalize; others get a full reformat).
 
-Told to the user honestly rather than papered over: a `treadle fmt` command makes the
+Told to the user honestly rather than papered over: a `therblig fmt` command makes the
 one-time diff a separate, reviewable commit instead of hiding it inside their first edit.
 
 **Reverses if:** design partners reject the reformat. The fallback is a surgical XML
 splicer that edits bytes in place — exact, but substantially harder.
+
+**Amended 2026-09-04 (F10).** The bargain has a second clause, and it must be stated as
+plainly as the first: **the first `therblig fmt` also deletes XML comments, DOCTYPE
+declarations and processing instructions.**
+
+`therblig fmt --check` and `therblig lint` warn before any write when the input carries
+such constructs. therblig never refuses on this basis — the naive text-editing baseline
+preserves comments trivially and for free, so a hard refusal would make the structured
+path strictly worse than the arm it has to beat, on a real axis.
+
+**Reverses if:** `moddle-xml` registers a comment handler upstream, or measured
+real-world incidence rises above 5%.
+
+**Measured 2026-09-04 (F15).** 220 public `.bpmn` files across 161 repositories:
+**4.1% carry a body-position comment**, 2.7% carry only an exporter banner, 1.4% carry a
+DOCTYPE, none carry a non-declaration PI. Below the 5% threshold, so this clause stands
+and no byte-splice is built. Two caveats are on the record in F15: most body comments are
+generator-emitted section dividers, but not all — and the hits cluster in LLM-generated
+BPMN, which is the population an agent-facing tool will meet most. Re-run
+`npm run probe:comment-incidence` before v0.1; a sustained reading above 5% triggers the
+header/footer splice.
 
 ## ADR-005 — DI coverage is a hard CI gate; the layouter's warnings channel is not trusted
 
@@ -66,14 +140,41 @@ got one. Build fails below 100%.
 
 **Rests on:** F4 — `C.4.0` lost 52 of 107 elements and emitted zero warnings.
 
-`bpmn-auto-layout@2.0.0-alpha.2` is pinned exactly. It is an unreleased alpha under a `next`
-dist-tag from a package that ships no LICENSE file (MIT is declared in `package.json` and README
-only).
+`bpmn-auto-layout@2.0.0-alpha.2` is pinned exactly and vendored. It is an unreleased alpha
+under a `next` dist-tag from a package that ships no LICENSE file (MIT is declared in
+`package.json` and README only). This is the single largest supply-chain exposure in the
+project and is recorded as such, not as a footnote.
 
-**Resolved for anyone who installs this (ADR-028).** The layouter is used by two bench probes and
-by nothing the package ships — `placement.mjs` places new elements itself, which is the point of
-ADR-003 — so it moved to `devDependencies` at v0.1.0. The exposure stays ours and stops being the
-consumer's, and CI fails if it comes back into the production tree.
+**Amended 2026-09-04. Two factual corrections and one scope change.**
+
+**(a) "pinned exactly and vendored" was false.** `third_party/` contains only `omg/`.
+`bpmn-auto-layout` is an ordinary npm dependency and always has been.
+
+**(b) "a package that ships no LICENSE file" understates it.** No published version has
+ever shipped one — stable 1.3.0 included. So downgrading off the alpha is *not* a
+mitigation for the licensing exposure, which the original wording implies. The only
+grant is the string `"license": "MIT"` in `package.json`; there is no copyright notice
+to reproduce.
+
+**(c) Scope change: `bpmn-auto-layout` is not a runtime dependency of anything
+published.** F9/F11 show incremental placement covers every edit to a file that already
+has DI, which is the entire edit-first product; full-file layout is needed only to
+construct the baseline arm. It stays pinned exactly as a bench devDependency and as an
+optional peer of `therblig`, dynamically imported only by `therblig layout --experimental`,
+whose `--help` prints F4's version-scoped failure rate. Honestly stated: this removes it
+from the published dependency surface but **not** from the lockfile, and procurement
+tools that read lockfiles will still see it.
+
+A file with no `BPMNPlane` is refused with `TRD_NO_DI` and a coverage-check recipe —
+never with a pointer to `npx bpmn-auto-layout`, which is the exact CLI F4 measured
+silently dropping half a reference model.
+
+**Merge clarification 2026-09-07.** The optional-peer / `layout --experimental`
+paragraph above records a proposed distribution path, not an implemented command in
+either retained CLI. Do not advertise it as available. The bench dependency remains
+pinned, and the merged package’s production dependency audit must verify its exclusion.
+The Studio branch independently moved the layouter to development-only use for the
+same reason: incremental placement does not call it.
 
 ## ADR-006 — `bpmnlint:correctness` is a hard gate; `recommended` is differential
 
@@ -81,10 +182,55 @@ consumer's, and CI fails if it comes back into the production tree.
 9/22. Scoring anything against absolute `recommended` cleanliness penalises it for the
 input file's pre-existing style violations.
 
+**Amended 2026-09-04. The mechanism was wrong, not the principle.** The differential is
+implemented at `gates.mjs:169` as `styleAfter.errors.length - styleBefore.errors.length`
+— a **count** subtraction. Since 13 of 22 corpus files already fail `recommended`, an
+edit that incidentally clears one pre-existing style error while introducing a
+`no-disconnected` scores 0 and passes.
+
+That is worse than it sounds. `no-disconnected` exists only in `recommended`;
+`correctness` is 8 rules and contains no such rule; the XSD makes the node side of
+adjacency optional (which is exactly what F8 measured); and `fingerprint()` never reads
+`incoming`/`outgoing`. **So this count subtraction is the only thing in the entire
+five-gate scorer standing between a model and a violation of F8's dual-adjacency
+invariant.**
+
+The differential now compares multisets of `${rule}:${elementId}` identities. Any newly
+introduced rule instance fails the gate regardless of what else the edit happened to
+fix. Dual adjacency is additionally asserted structurally in the M1 oracle rather than
+inferred from a lint differential — a differential over a noisy baseline is not a safety
+property.
+
 ## ADR-007 — Node 22.12 floor
 
 **Rests on:** F6 — `bpmnlint@11.13.0` CJS-requires an ESM-only `min-dash@5`, which only
 works where `require(esm)` is enabled. Not caused by the layouter, which runs fine on 20.
+
+**Amended 2026-09-04. Right number, wrong reason — and it is a choice, not a
+constraint.** Re-measured: on Node 20.10 `import('bpmnlint/lib/linter.js')` throws
+`ERR_REQUIRE_ESM` on `min-dash/dist/index.js`, and `import('bpmn-auto-layout')` resolves
+cleanly. So F6's attribution — the floor comes from bpmnlint, not the layouter — is
+correct.
+
+But `bpmnlint@11.13.0` declares `engines: { node: ">= 20" }`, and Node unflagged
+`require(esm)` in **20.19.0**. The floor this dependency chain strictly forces is
+therefore 20.19. **22.12 is a chosen floor** — where `require(esm)` is unflagged on the
+22 LTS line — and is stated as a choice.
+
+A claim considered and rejected on the evidence: that `bpmn-auto-layout` 2.x forces
+22.12. The installed `2.0.0-alpha.2` declares `engines: { node: ">= 18" }` and imports
+successfully on 20.10.
+
+**A second, higher DEV floor applies.** `@modelcontextprotocol/inspector` declares
+`node >= 22.19`, so a contributor provisioning from `.nvmrc` must land above that or CI
+fails on a machine that satisfies this ADR. `.nvmrc` and `.node-version` therefore pin
+22.20.0 (the version these findings were re-measured on) while `engines` keeps the
+consumer floor at `>=22.12`.
+
+**Enforced, not declared.** `.npmrc` sets `engine-strict=true`, and CI has an
+`engine-floor` job that asserts `npm ci` *fails* on Node 20. This is not hypothetical
+hygiene: the machine that produced F1–F9 was running Node 20.10 against a declared
+`>=22.12` floor with no `.npmrc`, and `.node22path` pointed into a deleted scratchpad.
 
 ## ADR-008 — Apache-2.0, DCO, repo-level open-core boundary
 
@@ -112,7 +258,192 @@ are verbatim MIT; the watermark is injected in `bpmn-js/lib/BaseViewer.js`, whic
 pipeline never executes. An optional viewer package may depend on bpmn-js, published
 separately, never bundled by the CLI, with the watermark obligation documented.
 
-## ADR-010 — Stateless MCP with server-minted handles
+**Amended 2026-09-04 (F13). The rationale was false and the guard was broken in both
+directions.**
+
+The bpmn.io licence **names no packages at all.** It grants MIT-like terms "except that
+the source code responsible for displaying the bpmn.io project watermark ... MUST NOT be
+removed or changed". The obligation travels with the watermark, not with four names.
+
+The guard was `for pkg in bpmn-js dmn-js form-js cmmn-js; do [ -d node_modules/$pkg ]`:
+
+- **one false positive** — unscoped `form-js` on npm is an unrelated MIT package, so any
+  install of it failed the build for no reason;
+- **eight false negatives** — `@bpmn-io/form-js{,-viewer,-editor,-carbon-styles}` and
+  `dmn-js-{drd,decision-table,literal-expression,shared}` all carry the clause and were
+  never checked.
+
+Replaced by `scripts/licence-guard.mjs` over the installed **production** tree:
+(a) every package must resolve to an SPDX expression on an allowlist — `SEE LICENSE IN
+LICENSE` fails generically, which future-proofs against packages bpmn.io has not
+published yet, and disjunctions like `(MPL-2.0 OR Apache-2.0)` are satisfied by one
+allowed term; (b) every shipped licence text is grepped for `/watermark/i`; (c) a dated
+exception table, currently one entry (`cli-table@0.3.11`, no `license` field, ships
+verbatim MIT text).
+
+`bpmn-js-differ` is **explicitly permitted** — verified MIT, no watermark, no `bpmn-js`
+dependency, and it already separates `_layoutChanged` from `_added`/`_removed`/`_changed`,
+which is exactly the split the M4 preservation receipt needs.
+`@anthropic-ai/claude-agent-sdk` is **explicitly denied**: its licence is
+"(c) Anthropic PBC. All rights reserved", strictly more restrictive than the clause this
+guard exists to exclude, and therblig never needs it because the product *is* an MCP
+server.
+
+**A guard never seen to fail is not known to work.** CI installs
+`@bpmn-io/form-js-viewer` and asserts the guard rejects it. Verified 2026-09-04: it
+fails twice over, on SPDX and on licence text.
+
+## ADR-010 (rev. 2) — Stateless, path-addressed MCP; no handles, no `patch_id`
+
+*Rev. 1 (2026-09-01) proposed server-minted handles with `base_rev` and `patch_id`.
+Three of its five premises were refuted on live verification 2026-09-04 and its
+idempotency mechanism had no basis in the spec. Superseded in full.*
+
+**Decision.** therblig's MCP tools take an absolute file path as an ordinary tool
+argument, and the server holds no cross-call state. Consistency is carried by
+`base_rev` — the first 12 hex characters of the SHA-256 of the raw file bytes —
+returned by every read and **required** by every write that is not a dry run.
+
+**Rests on (verified 2026-09-04).** MCP revision 2026-07-28 is current and is stateless
+by design. It removed protocol-level sessions and the `Mcp-Session-Id` header
+(SEP-2567), removed the `initialize`/`notifications/initialized` handshake, and removed
+SSE resumability (SEP-2575).
+
+**What rev. 1 got wrong.**
+
+- *"Sampling was removed."* It was **deprecated**, not removed — alongside Roots and
+  Logging (SEP-2577) — and remains fully functional, earliest removal being the first
+  revision on or after 2027-07-28. Conveniently, the published migration paths are
+  already what we do: pass files as tool parameters instead of Roots, log to stderr
+  instead of Logging.
+- *Treating "Stateful Tools" as normative.* That section is explicitly non-normative:
+  "The protocol has no concept of a state handle; from the wire's perspective a handle
+  is an ordinary string in a tool result and an ordinary argument to subsequent tool
+  calls."
+- *"The frozen v1 SDK."* v1 is maintenance-only, not frozen —
+  `@modelcontextprotocol/sdk@1.30.0` is current and supported for at least six months
+  past v2.
+
+**The handle pattern is declined.** The spec's worked examples are a shopping cart, an
+open browser context and a database transaction — all ephemeral *server-side* state.
+therblig's state is a file the filesystem already names. A handle would buy latency and
+would turn every recovery path — stale rev, server restart, an external save from
+Camunda Modeler — into a failure mode rather than a re-read.
+
+**`patch_id` is dropped.** The 2026-07-28 core spec contains no idempotency mechanism,
+no request-dedup rule and no retry-safety requirement; the only artifact is
+`ToolAnnotations.idempotentHint`, which the schema itself calls a hint clients must
+treat as untrusted. Any key would have been a therblig-level invention, and a required
+`base_rev` is strictly stronger: it survives a restart, needs no store, and detects an
+external write that a counter could not. Residual TOCTOU between hash and rename is
+real and stated — `base_rev` is advisory against a concurrent Modeler save, not a lock;
+the atomic rename guarantees only that the file is never observed truncated.
+
+**Build target.** `@modelcontextprotocol/server@2.0.0`, pinned exactly. Verified today:
+MIT, engines `>=20`, and exactly two runtime dependencies (`zod@^4.2.0` and
+`@modelcontextprotocol/core@2.0.0`). Not v1 — not because v1 is dead, but because its
+tree drags express, hono, cors, jose, ajv and eventsource into what is a stdio-only
+offline binary. stdio only: no Streamable HTTP, so no `server/discover` header
+machinery, no 405-on-GET, no cache-TTL obligations.
+
+`tools/list` is a fixed, deterministically ordered static set that never varies per
+connection or per open file — which SEP-2567 now requires and which the path-addressed
+design satisfies by construction.
+
+Adopted from the non-normative checklist anyway: every staleness or not-found condition
+returns a tool **execution** error (`isError: true`) with actionable recovery text,
+never a JSON-RPC protocol error.
+
+**Reverses if:** a host sandbox prevents reading a path the user named. Guard: `--root`
+confinement ships in v0.1, and any such report is the trigger to add an `open`/handle
+pair after all.
+
+**Open:** whether `serveStdio`'s default legacy mode connects on Claude Code, Claude
+Desktop, Cursor and VS Code. Measured in M0; kill criterion 2 drops to
+`@modelcontextprotocol/sdk@1.30.0` for the transport only if two or more fail. Nothing
+above depends on that outcome — it rests on the spec's statelessness, not on the SDK.
+
+
+## ADR-011 — `move` and `message` are their own operations, not flags
+
+**2026-09-06.** The four ops were "deliberately four: add, set, del, connect", and the
+first instinct on needing lane moves and message flows was to add a `lane` key to `set`
+and a `--message` flag to `connect`. Both were wrong, for the same structural reason.
+
+**Lane membership is not a property of the node.** It is a list of `flowNodeRef` on the
+`bpmn:Lane`. There is nothing on the node to set, which is why `set {patch:{lane}}` fell
+through the old open assignment and wrote a junk property that serialized silently
+(F12/D1's sibling). Moving is two edits — one lane loses the reference, another gains it
+— and doing half leaves the node listed twice or not at all.
+
+**A message flow is not a sequence flow with a flag.** It has a different parent (the
+`bpmn:Collaboration`, not either process), lives in a different collection
+(`messageFlows`), and takes no part in node adjacency, because `<incoming>`/`<outgoing>`
+hold sequence flows only. Three differences, none of which a boolean expresses.
+
+Both would have been expressible as options, and both would have hidden a structural
+difference behind a parameter — which is the shape of every bug in F12.
+
+**Rests on:** the corpus sweep, which now runs eight canonical edit kinds over 23 files
+(139/139). `move` reaches 9 files and `message` 6; the per-kind counts are printed so a
+category silently reaching zero files is visible rather than assumed.
+
+**Reverses if:** a third construct turns out to need the same treatment and the op list
+starts to read as a catalogue rather than a vocabulary. The line to hold is that an
+operation exists when the underlying structure differs, not when the user's phrasing does.
+
+## ADR-012 — `backend/core` is the structure; the second extraction was reconciled onto it
+
+**2026-09-06.** Two efforts extracted the same core from commit `a9ab476`, three days
+apart, without knowing about each other. PR #1 (Nicollas Isaac, merged 2026-09-03)
+promoted it to `backend/core/` with documented module boundaries and a 100%-coverage
+gate. The parallel line of work extracted it to `packages/therblig/src/` on the way to a
+CLI, an MCP server, an oracle and a write barrier.
+
+**Theirs is the structure that survives.** It was merged first, and it is the one with
+its rules written down — `CLAUDE.md` states the module boundaries, forbids a generic
+`src/`, and requires a reproducer for every claim. Deciding by whoever pushes second is
+not a decision.
+
+Adopted from it: the layout, the module names, `node --test` with 100% line, function and
+branch coverage on the core, oxlint with `--deny-warnings`, and — most usefully —
+`adjacency.mjs` as the only module permitted to assign `sourceRef`, `targetRef`,
+`incoming` or `outgoing`, enforced by an architecture test. That is a stronger guarantee
+than the runtime allowlist in the other line, because it holds for code nobody has
+written yet. Both are kept: the test constrains core modules, the allowlist constrains a
+caller's operations, and neither sees what the other does.
+
+Ported onto it, because `backend/core` forked from the same pre-M1 code and carried every
+defect M1 had already found: labels not travelling with their shapes (F11), an unscoped
+make-room shift, one-directional DI coverage with no exemption for collapsed
+sub-processes or undrawn processes (F16, F17), and the open `set` fallthrough (F12).
+Then the layers that had no counterpart — oracle, guard, write barrier, receipt,
+renderer, CLI, MCP server — as siblings of `core/` rather than inside it, since core is
+defined as having no I/O.
+
+The sweep found two more while reconciling: `insertionFor` read `container.flowElements`
+before it existed and threw on a real file, and the guard's expected set was not
+transitive through attachment, so deleting a task reported the flow of its own boundary
+event as an unintended change.
+
+**Resolved 2026-09-06.** The repository was renamed to `EduardoHOS/therblig` by its
+owner, and `CLAUDE.md`, the package metadata and the remote now follow. The dated design
+note under `docs/superpowers/specs/` keeps the old name, because it records what was
+decided on 2026-09-03 and rewriting it would make the record less true rather than more.
+Nicollas has been working under the previous name and should be told rather than left to
+discover it from a diff.
+
+
+# Studio decision records
+
+These records preserve the Studio branch's design and evidence at `eee02c3`.
+Package names and implementation status inside them are historical. References to
+Studio F10–F17 resolve to the Studio findings section of [FINDINGS.md](FINDINGS.md).
+The original Studio ADR-010 protocol rationale is historical: the corrections in
+ADR-010 rev. 2 above apply to its statements about MCP, sampling and SDK support.
+Retaining a governed caller does not reinstate those refuted protocol claims.
+
+## Studio ADR-010 — Stateless MCP with server-minted handles
 
 No protocol sessions. State lives in our own store keyed by an opaque handle the model
 passes as an ordinary tool argument, with `base_rev` for staleness and `patch_id` for
@@ -132,7 +463,7 @@ a connection that opens with an `initialize` request, so supporting older client
 and needs no code of ours. Verified against the real wire before any of this was built: a spike
 answered `tools/list` and `tools/call` over stdio with `resultType: "complete"` and no handshake.
 
-## ADR-011 — Ops compile intent to primitives; nothing above `patch.mjs` touches the tree
+## Studio ADR-011 — Ops compile intent to primitives; nothing above `patch.mjs` touches the tree
 
 An op is a pure function `(IR, args) → envelope`. The envelope carries a `plan` of the four
 primitives, its `inverse`, the ids it will mint, a `risk` level computed from the plan, a DI
@@ -152,7 +483,7 @@ drift from the plan; a computed one cannot.
 **Reverses if:** an op cannot be expressed as primitives without a new primitive that only that op
 uses. That is the signal the primitive set is wrong, not that the op should reach into the tree.
 
-## ADR-012 — One block, one definition; a slot exists only where blocks differ
+## Studio ADR-012 — One block, one definition; a slot exists only where blocks differ
 
 `backend/core/blocks/` holds one frozen definition per BPMN element type and `registry.mjs`
 tabulates them. The table replaces three places that each listed types independently: the two
@@ -178,7 +509,7 @@ as missing, which is the honest answer.
 **Reverses if:** a block needs a slot that only it implements. That is the signal the behaviour
 belongs in the module that consumes it, not in the table.
 
-## ADR-013 — Gates live in the core; the bench re-exports them
+## Studio ADR-013 — Gates live in the core; the bench re-exports them
 
 `backend/core/gates.mjs` owns parse, XSD, bpmnlint, collateral-change and diff-sanity;
 `bench/scorer/gates.mjs` is now a re-export. The core may not import `bench/`, so a `propose`
@@ -193,10 +524,10 @@ that validates the corpus with `process.cwd()` set to `/`, which the CLI will ne
 returns an `errors` array whose entries carry `message`, so the string/`rawMessage` fallbacks
 never ran; and across the corpus's 1,167 references, moddle left zero as an unresolved string —
 it drops a reference it cannot resolve — so `ref.id ?? ref` never ran either. That last fact is
-also the reason a passing XSD gate says nothing about reference integrity, which is ADR-014's job.
+also the reason a passing XSD gate says nothing about reference integrity, which is Studio ADR-014's job.
 `fingerprint` now walks with `document.mjs`'s `walk` instead of its own copy.
 
-## ADR-014 — A proposal is a dry run against an isolated document
+## Studio ADR-014 — A proposal is a dry run against an isolated document
 
 `propose(document, plan)` serializes and re-parses the caller's document (there is no deep clone
 of a moddle tree, so a round-trip is the clone), applies the plan to that copy, places what it
@@ -210,13 +541,13 @@ source byte-identical. Removing the isolation fails it.
 **No `rev` yet.** The design pairs proposals with a revision handle, but no store exists: that
 arrives with the MCP server, and a handle with no store to key would be a speculative field.
 
-## ADR-015 — Reference integrity is its own gate, and it is differential
+## Studio ADR-015 — Reference integrity is its own gate, and it is differential
 
 `references(xml)` resolves every BPMN reference and checks scope: a sequence flow may not cross a
 container, a boundary event may not attach across one, a lane may not claim a node from another
 process, and a default flow must leave the element that names it. Only a message flow may cross.
 
-**Rests on:** F10 — seven broken documents, each XSD-valid and `bpmnlint:correctness`-clean, and
+**Rests on:** Studio F10 — seven broken documents, each XSD-valid and `bpmnlint:correctness`-clean, and
 none of them caught by anything else. This is the measured form of the invariant that XSD validity
 must never be reported as complete reference integrity.
 
@@ -230,7 +561,7 @@ activity may legitimately name a process in another file — a workspace concern
 **Reverses if:** a corpus file trips a scope rule that BPMN actually permits. The gate is then too
 strict and the rule, not the file, is wrong.
 
-## ADR-016 — A connection's kind is decided by scope, not by the caller
+## Studio ADR-016 — A connection's kind is decided by scope, not by the caller
 
 `connect` mints a sequence flow when source and target share a container and a message flow when
 they do not, refusing when the two containers are not pools of one collaboration. BPMN leaves no
@@ -245,7 +576,7 @@ arbitrary parent. `miwg/C.1.0` has two pools under one collaboration and works.
 (`flowNodeRef`) and not on the node — the IR shows it on the node, so the primitive mirrors the
 IR rather than making a caller edit two lanes.
 
-## ADR-017 — An op guarantees an exact inverse; a primitive does not
+## Studio ADR-017 — An op guarantees an exact inverse; a primitive does not
 
 `bypass` refuses a node carrying boundary events instead of cascading them, because the IR does
 not carry a timer's duration or an error code and the re-added boundary could not be restored.
@@ -258,14 +589,14 @@ compares the semantic fingerprint. A lossy inverse would pass that check while l
 **`risk` counts `lane` as routing.** Moving a step between lanes moves no token, but it changes
 who executes the work — not something an autonomous agent should do unreviewed.
 
-## ADR-018 — A fork mints its split and join as a pair
+## Studio ADR-018 — A fork mints its split and join as a pair
 
 `branch` and `parallel` create both gateways in one plan and return `{ split, join }`, so an
 unbalanced gateway stops being expressible at this height. The first branch consumes the direct
 split-to-join flow that `add … between` leaves behind, which is why that flow is always the one a
 default can name; every later branch is connected explicitly.
 
-**Rests on:** F12 — 18 of 18 file/op combinations move their shapes by a single delta, so the
+**Rests on:** Studio F12 — 18 of 18 file/op combinations move their shapes by a single delta, so the
 gate that distinguishes "made room" from "reflowed" stays green on the hardest edit in the brief.
 Plan-level placement was designed and then not written: it had no measured problem to solve.
 
@@ -281,7 +612,7 @@ through, but makes nothing up when they are absent.
 `mintId` truncates a slug at 24 characters and real ids are long: the truncated form still says
 what the element is instead of reading as the anchor's own id.
 
-## ADR-019 — `backend/io` is the only filesystem boundary, and it confines by real path
+## Studio ADR-019 — `backend/io` is the only filesystem boundary, and it confines by real path
 
 `confine(root, path)` resolves through `realpath`, so a `..` and a symlink pointing out of the
 workspace are refused by the same check, and the resolved path is what every later operation uses.
@@ -302,7 +633,7 @@ directory holds no leftovers — including a directory squatting on the temporar
 with the module and are not user input. `backend/io` is now under the same 100% coverage gate as
 the core.
 
-## ADR-020 — The CLI reads before it writes, and confines to the working directory
+## Studio ADR-020 — The CLI reads before it writes, and confines to the working directory
 
 `treadle project`, `lint` and `explain` ship first, with no write path at all. They need none of
 the machinery a writer does, so they are the shortest route to something someone can actually run,
@@ -326,7 +657,7 @@ nodes and wakes a boundary whose host it has reached, to a fixed point.
 not collected across processes. Every command, exit code and failure path is covered by a spawned
 test instead — which is stronger evidence for a CLI than a line count.
 
-## ADR-021 — Dry run by default; `--write` publishes, `--allow` decides how far
+## Studio ADR-021 — Dry run by default; `--write` publishes, `--allow` decides how far
 
 `treadle apply` prints the envelope, every gate and the measured diff, and touches nothing. Adding
 `--write` publishes through `writeBpmnAtomic`, and only if every gate passed. The risk level is
@@ -348,7 +679,7 @@ A command for what an argument already does is a command to keep working.
 **Ops are named by an explicit map, and `--args` takes JSON.** One flag carrying the op's arguments
 maps to the envelope's `args` exactly, instead of inventing a flag per parameter of ten ops.
 
-## ADR-022 — TypeScript contracts are emitted from JSDoc, never hand-written
+## Studio ADR-022 — TypeScript contracts are emitted from JSDoc, never hand-written
 
 `npm run types` runs `tsc --emitDeclarationOnly` over `backend/core` and `backend/io` and then
 type-checks `backend/contracts/consumer.ts` against what came out. There is no second
@@ -369,7 +700,7 @@ contract for a caller; they do not replace it.
 **`types/` is not committed.** It is built by `npm run check`, and a generated tree in git is a
 tree that drifts.
 
-## ADR-023 — The MCP server proposes freely and publishes under a policy
+## Studio ADR-023 — The MCP server proposes freely and publishes under a policy
 
 Every op tool is a dry run: it returns the plan, its exact inverse, the computed risk, every gate
 and the measured diff, and mints a revision. `publish` is the only tool with a side effect, and it
@@ -400,10 +731,10 @@ including one asserting every line of stdout is a protocol message.
 never mention `@modelcontextprotocol`, so the protocol is a delivery surface and not a dependency
 of the product.
 
-## ADR-024 — A semantic rule ships only with proof that nothing else catches it
+## Studio ADR-024 — A semantic rule ships only with proof that nothing else catches it
 
 The `semantics` gate holds one rule. Two other candidates were built, measured, and dropped
-because `bpmnlint` already catches them (F16). A gate that repeats another gate costs the same to
+because `bpmnlint` already catches them (Studio F16). A gate that repeats another gate costs the same to
 run and teaches a reader that a finding is our own when it is not.
 
 The test for each rule constructs the document it should catch and asserts XSD validity and both
@@ -411,10 +742,10 @@ bpmnlint presets pass it *before* asserting this gate does not — so a rule tha
 because a linter grew it, fails the suite rather than quietly duplicating.
 
 **No `check` slot on the block table.** One rule on one block would be a slot with a single
-implementation, which ADR-012 rules out. The rule lives in the module that consumes it, and moves
+implementation, which Studio ADR-012 rules out. The rule lives in the module that consumes it, and moves
 to the table when a second block needs one.
 
-## ADR-025 — Discrete-event tokens, and a refusal wherever the model needs more than a node knows
+## Studio ADR-025 — Discrete-event tokens, and a refusal wherever the model needs more than a node knows
 
 Every token carries its own clock. A node fires at the latest arrival among the tokens it
 consumes, so a parallel join takes the longer branch — 4 hours beside 9 is 9, and a running global
@@ -439,7 +770,7 @@ warning gets quoted without the warning.
 **Reverses if:** a model needs sub-scope simulation to be useful. A subprocess runs as one opaque
 step today, which is a stated limit rather than a hidden one.
 
-## ADR-026 — The review packet is the deliverable; the diagram is not
+## Studio ADR-026 — The review packet is the deliverable; the diagram is not
 
 `review(before, after)` produces what a reviewer reads: what was added, removed, renamed,
 rerouted, retyped and reowned — **by id**, because ids survive an edit, so a rename is a rename
@@ -460,7 +791,7 @@ intend, and between two arbitrary files there is no intent to compare against. I
 **An unnamed lane is reported by its id.** `miwg/C.1.0` has one, and a packet that says a step
 moved out of `""` tells a reviewer nothing.
 
-## ADR-027 — Conformance replays an explicit trace; it does not mine a log
+## Studio ADR-027 — Conformance replays an explicit trace; it does not mine a log
 
 `conform(definitions, trace)` takes a list of element ids in the order they ran and answers two
 questions: does what happened match what the model allows, and what does the model allow that
@@ -470,7 +801,7 @@ never reached.
 **It is not log ingestion, and the difference is the whole point.** Turning a log into a trace
 means matching case ids and activity names to elements, and that mapping is the binding layer's
 problem — the thing that says which system performs which step. This ships the half that can be
-built and tested today, and F14's earlier framing of "ingest a log" was hiding a much larger job
+built and tested today, and Studio F14's earlier framing of "ingest a log" was hiding a much larger job
 inside a verb.
 
 **A boundary event follows its host.** No sequence flow leads into one; it fires because its host
@@ -480,7 +811,7 @@ divergence.
 **Reverses if:** a trace is ever produced from something other than a person or a script naming
 ids. At that point the mapping is the feature, and this is its consumer.
 
-## ADR-028 — The viewer is ours, and it renders the DI the file already carries
+## Studio ADR-028 — The viewer is ours, and it renders the DI the file already carries
 
 `render(definitions)` produces a read-only SVG. Every coordinate comes from the document's own DI;
 nothing here lays anything out, which is ADR-003's rule applied to drawing.
@@ -522,17 +853,17 @@ for added, red for removed, amber for rerouted or retyped, teal for renamed or m
 **Reverses if:** someone needs to *edit* on a canvas. That is `bpmn-js`'s job and a separate
 package's problem, and this renderer would not be the thing to grow into it.
 
-## ADR-029 — The Studio is a review surface, and it lives outside the published package
+## Studio ADR-029 — The Studio is a review surface, and it lives outside the published package
 
 `frontend/` is a Next.js app that opens the `.bpmn` files in a workspace directory and shows what
 the core already knows about each one: the projection, the gate results, the review packet against
-a second file, and the SVG from ADR-028 with pan, zoom, and selection over the ids that SVG
+a second file, and the SVG from Studio ADR-028 with pan, zoom, and selection over the ids that SVG
 carries.
 
 **It reviews; it does not model.** The canvas was the input device in every BPMN tool built before
 an agent could write the edit. Here the agent proposes and the person judges, so the canvas is
 where a proposal is read, not where it is drawn. A modeller already exists — `bpmn-js` — and using
-it would take back the watermark obligation ADR-009 and ADR-028 both refuse.
+it would take back the watermark obligation ADR-009 and Studio ADR-028 both refuse.
 
 **It is a separate npm workspace, not part of `treadle`.** The published package is the core, the
 CLI, and the MCP server; nothing in `backend/` imports anything under `frontend/`. The app depends
@@ -570,11 +901,11 @@ screenshot.** All four looked fine in a picture and were broken in use:
   `localStorage.getItem('function() { throw ... }')` and the theme never survived a reload.
 
 **Reverses if:** someone needs to edit on the canvas, or the workspace stops being a local
-directory. The first is ADR-028's reversal, not this one's; the second makes path confinement a
+directory. The first is Studio ADR-028's reversal, not this one's; the second makes path confinement a
 server's problem rather than a `realpath` call.
 
 
-## ADR-030 — Artifacts are projected but never addable
+## Studio ADR-030 — Artifacts are projected but never addable
 
 `project()` returns `data`, `notes`, `groups` and `links` alongside the flow: data objects and
 stores, the inputs and outputs an activity declares, text annotations, groups, and the associations

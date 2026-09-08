@@ -4,8 +4,8 @@
 // report the directive as unused and `npm run types` would fail.
 // Resolved the way a consumer of the published package would resolve it: through the emitted
 // declarations, not through the JavaScript they were emitted from.
-import type { Envelope, Operation, Projection, RiskLevel } from 'treadle';
-import { insertAfter, propose, risk } from 'treadle';
+import type { Envelope, Operation, Projection, RiskLevel } from 'therblig';
+import { insertAfter, propose, risk } from 'therblig';
 
 declare const ir: Projection;
 

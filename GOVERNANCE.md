@@ -2,7 +2,7 @@
 
 ## Licence promise
 
-**Treadle's core will not be relicensed.** Everything published under this repository
+**therblig's core will not be relicensed.** Everything published under this repository
 is Apache-2.0 and stays Apache-2.0. We will not move it to a source-available licence,
 a business-source licence, or any other non-OSI licence.
 
@@ -17,7 +17,7 @@ building on BPMN tooling have been burned by exactly this, and are right to ask.
 
 ## Commercial model
 
-Treadle is maintainer-led and there is no company behind it today. There may be one
+therblig is maintainer-led and there is no company behind it today. There may be one
 later — the intent is to eventually fund the work commercially — and that is stated
 plainly rather than discovered later, because the licence promise above only means
 something if you know what pressures it is meant to survive.
@@ -49,12 +49,27 @@ after.
 
 ## Trademark
 
-The Treadle name is held by the maintainers and is not covered by the Apache-2.0 grant,
+The therblig name is held by the maintainers and is not covered by the Apache-2.0 grant,
 which covers copyright and patents but not trademarks. No trademark registration has
-been filed yet. You may say your software works with Treadle, is built on Treadle, or is
-a fork of Treadle. Please do not use the name in a way that implies the project endorses
+been filed yet. You may say your software works with therblig, is built on therblig, or is
+a fork of therblig. Please do not use the name in a way that implies the project endorses
 or maintains your distribution.
 
+**A caveat recorded honestly, because the open-core boundary leans on this name.**
+"Therblig" is not a coined word. It is an established term of art in industrial
+engineering — a unit of elemental motion, named by Frank and Lillian Gilbreth (roughly
+their surname reversed) and in continuous technical use since the 1910s. That cuts both
+ways. It is unlikely to collide with an existing mark, and it is thematically exact for a
+tool about process. But descriptive and established technical terms are weak marks: they
+are harder to register, narrower in the protection they earn, and in a field where the
+term is genuinely used, arguably generic. Since GOVERNANCE says the commercial boundary is
+repo-level rather than licence-level, the name is the main enforcement mechanism the
+project has — so this is a real trade, not a footnote. Verified 2026-09-04: `therblig`,
+`therblig-mcp` and `therbligs` are free on npm and PyPI; the GitHub account `therblig` is
+taken by a dormant user (created 2020, zero public repos), so the MCP registry namespace
+is `io.github.eduardohos/therblig` rather than an org namespace. Clearance and
+registrability need a lawyer before any registration is attempted.
+
 BPMN and the BPMN logo are trademarks of the Object Management Group. Camunda, Signavio
-and ARIS are trademarks of their respective owners. Treadle is not affiliated with,
+and ARIS are trademarks of their respective owners. therblig is not affiliated with,
 endorsed by, or sponsored by any of them.

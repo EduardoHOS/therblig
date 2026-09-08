@@ -262,11 +262,10 @@ test('message on a real two-pool collaboration mints a message flow and draws it
     'Team-Assistant sends "scanned invoice" from "Scan Invoice" to "Approve Invoice" in Process Engine - Invoice Receipt.',
   );
 
-  // The one style regression is bpmnlint's `no-implicit-split` counting the new message flow as
-  // a second outgoing branch. BPMN does not: a message flow carries no token. The gate reports
-  // it rather than special-casing a linter rule, and `recommended` is a style opinion (ADR-006).
-  assert.equal(result.gates.lintClean.styleDelta, 1);
-  assert.equal(result.ok, false);
+  // A message carries no token and must not enter the sequence-flow adjacency lists.
+  // Keeping those lists separate prevents a false implicit-split style regression.
+  assert.equal(result.gates.lintClean.styleDelta, 0);
+  assert.equal(result.ok, true);
 });
 
 test('guarding one exit alone introduces the style error bpmnlint names', async () => {

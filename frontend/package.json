@@ -1,5 +1,5 @@
 {
-  "name": "@treadle/studio",
+  "name": "@therblig/studio",
   "version": "0.1.0",
   "private": true,
   "description": "A review surface for BPMN that an agent proposes changes to. Not a modeller.",
@@ -14,7 +14,7 @@
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "server-only": "^0.0.1",
-    "treadle": "file:.."
+    "therblig": "file:.."
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.14",
