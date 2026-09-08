@@ -28,9 +28,6 @@ function codeForPatchError(message) {
   if (/cannot be set directly/i.test(message)) return 'THB_FORBIDDEN_FIELD';
   if (/is not settable/i.test(message)) return 'THB_FORBIDDEN_FIELD';
   if (/not found/i.test(message)) return 'THB_NOT_FOUND_ELEMENT';
-  if (/^Unknown operation|is a \w+, not a lane|needs a "lane"|no collaboration/i.test(message)) {
-    return 'THB_UNKNOWN_TYPE';
-  }
   return 'THB_UNKNOWN_TYPE';
 }
 
@@ -102,9 +99,10 @@ export async function applyToFile(absPath, ops, { baseRev = null, dryRun = false
   // is actually consumed. Core stays unaware of it.
   let changed, created;
   try {
-    ({ changed, created } = applyPatch(working, ops));
+    // Path-based callers name message flows explicitly; a cross-pool connect must
+    // remain a sequence flow so the write barrier can refuse it.
+    ({ changed, created } = applyPatch(working, ops, { inferMessageFlows: false }));
   } catch (error) {
-    if (error instanceof TherbligError) throw error;
     throw new TherbligError(codeForPatchError(error.message), error.message);
   }
   const touched = [...new Set([...changed, ...created])];

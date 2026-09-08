@@ -27,10 +27,25 @@ export function* walk(element, seen = new Set()) {
   }
 }
 
+// walk() follows every reference, which reaches the whole graph. Deleting an element removes what
+// it *contains*, and containment is exactly `child.$parent === element`.
+export function* contained(element) {
+  yield element;
+  for (const key of Object.keys(element)) {
+    if (key.startsWith('$')) continue;
+    const value = element[key];
+    for (const child of Array.isArray(value) ? value : [value]) {
+      if (child && typeof child === 'object' && child.$parent === element) yield* contained(child);
+    }
+  }
+}
+
 export function index(definitions) {
   const byId = new Map();
   for (const element of walk(definitions)) {
-    if (element.id) byId.set(element.id, element);
+    // Generic vendor attributes named `id` need not be XML IDs. C.8.0 uses one as an
+    // ADONIS reference to its process; indexing it would shadow the actual BPMN container.
+    if (element.id && !element.$descriptor?.isGeneric) byId.set(element.id, element);
   }
   return byId;
 }

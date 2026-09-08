@@ -202,29 +202,59 @@ await check('move refuses a target that is not a lane', async () => {
 
 console.log('\ninterrupting a write');
 
-await check('SIGKILL mid-write leaves the old file or the new one, never a fragment', async () => {
+await check('SIGKILL before rename preserves the original and leaves a complete temporary', async () => {
   const f = sandbox('miwg/C.9.0.bpmn');
   const original = readFileSync(f, 'utf8');
   const { rev } = await readWithRev(f);
   const script = join(box, 'slow-write.mjs');
-  // Writes the temp file, then hangs BEFORE the rename — the exact window where an
-  // interrupted edit would corrupt a file if it were written in place.
+  // Pause only once the real writer has finished its temporary file and calls rename.
+  // A startup failure or refused edit must fail this test, not look like a safe interruption.
   writeFileSync(script, `
-    import { applyToFile } from ${JSON.stringify(fileURLToPath(new URL('../../io/write.mjs', import.meta.url)))};
-    process.stdout.write('go\\n');
-    await applyToFile(${JSON.stringify(f)}, [{ op: 'set', id: 'Task_1', patch: { name: 'Interrupted' } }], { baseRev: ${JSON.stringify(rev)} });
-    await new Promise(() => {});
+    import fs from 'node:fs/promises';
+    import { syncBuiltinESMExports } from 'node:module';
+    import { applyToFile } from ${JSON.stringify(new URL('../../io/write.mjs', import.meta.url).href)};
+    fs.rename = async (temporary) => {
+      setInterval(() => {}, 1000);
+      process.stdout.write(JSON.stringify({ temporary }) + '\\n');
+      await new Promise(() => {});
+    };
+    syncBuiltinESMExports();
+    await applyToFile(${JSON.stringify(f)}, [{ op: 'set', id: 'ServiceTask_GetCreditScore', patch: { name: 'Interrupted' } }], { baseRev: ${JSON.stringify(rev)} });
   `);
-  const p = spawn(process.execPath, [script], { stdio: ['ignore', 'pipe', 'pipe'] });
-  await new Promise((r) => { const t = setTimeout(r, 6000); p.stdout.on('data', () => { clearTimeout(t); setTimeout(r, 400); }); });
-  p.kill('SIGKILL');
-  await new Promise((r) => setTimeout(r, 300));
-
-  const now = readFileSync(f, 'utf8');
-  const whole = (await parses(now)).ok;
-  assert(whole, 'the file on disk no longer parses — a partial write escaped');
-  assert(now === original || now.includes('Interrupted'),
-    'the file is neither the original nor the finished edit');
+  const child = spawn(process.execPath, [script], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderr = '', stdout = '', temporary, timer;
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const closed = new Promise((resolve) => child.once('close', (code, signal) => resolve({ code, signal })));
+  const ready = new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+      if (!stdout.includes('\n')) return;
+      try { resolve(JSON.parse(stdout.trim()).temporary); } catch (error) { reject(error); }
+    });
+  });
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Writer did not finish within 6 seconds: ${stderr}`)), 6000);
+  });
+  try {
+    temporary = await Promise.race([
+      ready,
+      closed.then(({ code, signal }) => { throw new Error(`Writer exited before rename (${code ?? signal}): ${stderr}`); }),
+      deadline,
+    ]);
+    assert(readFileSync(f, 'utf8') === original, 'the target changed before rename');
+    const staged = readFileSync(temporary, 'utf8');
+    assert(staged.includes('Interrupted') && (await parses(staged)).ok, 'the temporary is not the complete edited BPMN');
+    assert(child.kill('SIGKILL'), 'the writer was not running when interrupted');
+    const result = await Promise.race([closed, deadline]);
+    assert(result.signal === 'SIGKILL', `writer was not killed: ${JSON.stringify(result)}`);
+    assert(readFileSync(f, 'utf8') === original, 'interruption changed the original file');
+    assert(readFileSync(temporary, 'utf8') === staged, 'interruption left a partial temporary');
+  } finally {
+    clearTimeout(timer);
+    child.kill('SIGKILL');
+    if (temporary) rmSync(temporary, { force: true });
+  }
 });
 
 await check('atomicWrite leaves no temp file behind on success', async () => {

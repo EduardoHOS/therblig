@@ -175,3 +175,10 @@ test('making room does not drag the lane band along with the tasks', async () =>
     );
   }
 });
+
+test('deleting an element reports the semantic ids whose DI was pruned', async () => {
+  const document = await load('handmade/zeebe-roundtrip.bpmn');
+  const { prunedDI } = applyPatch(document, [{ op: 'del', id: 'Review' }]);
+  assert.deepEqual(prunedDI.sort(), ['Flow_2', 'Flow_3', 'Review']);
+  assert.deepEqual(pruneDI(document.definitions), []);
+});

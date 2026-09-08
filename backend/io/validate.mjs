@@ -42,7 +42,8 @@ export async function xsdValid(xml) {
     });
     return {
       ok: res.valid,
-      errors: (res.errors || []).slice(0, 10).map((e) => (typeof e === 'string' ? e : e.message || e.rawMessage)),
+      // xmllint-wasm returns an array of XMLValidationError objects on every result.
+      errors: res.errors.slice(0, 10).map((e) => e.message),
     };
   } catch (e) {
     return { ok: false, errors: [`validator error: ${e.message.slice(0, 200)}`] };

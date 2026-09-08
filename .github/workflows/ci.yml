@@ -16,9 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 22.12 is the runtime floor. F6 attributed it to bpmnlint alone; that is only
-        # half right — require(esm) has been unflagged since 20.19, and the hard 22.12
-        # comes from bpmn-auto-layout 2.x. See ADR-007 as amended.
+        # 22.12 is the chosen supported floor. Test it explicitly alongside current
+        # Node 22 and 24; see ADR-007 for the require(esm) compatibility evidence.
         node: ['22.12', '22', '24']
         os: [ubuntu-latest, windows-latest]
     steps:
@@ -49,6 +48,19 @@ jobs:
           fi
           echo "npm ci refused under Node 20, as intended (EBADENGINE)."
 
+  studio:
+    name: Studio production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run types
+      - run: npm run build --workspace @therblig/studio
+
   licence-guard:
     name: licence guard
     runs-on: ubuntu-latest
@@ -76,6 +88,29 @@ jobs:
             exit 1
           fi
           echo "guard correctly rejected @bpmn-io/form-js-viewer."
+
+      # What a consumer installs is the production tree. The bench's devDependencies — the
+      # unreleased layouter alpha among them — are ours to carry, not theirs.
+      - name: the published package installs and runs
+        run: |
+          set -e
+          npm run types
+          tarball=$(npm pack | tail -1)
+          work=$(mktemp -d)
+          cp "$tarball" bench/corpus/miwg/C.9.0.bpmn "$work/"
+          cd "$work"
+          npm init -y > /dev/null
+          npm install "./$(basename "$tarball")" > /dev/null
+          npx treadle lint C.9.0.bpmn
+          npx treadle explain C.9.0.bpmn > /dev/null
+          npx therblig verify C.9.0.bpmn
+          npx therblig explain C.9.0.bpmn > /dev/null
+          node --input-type=module -e "import { createServer, build } from 'therblig/mcp'; if (typeof createServer !== 'function' || typeof build !== 'function') process.exit(1)"
+          if npm ls --omit=dev --all 2>/dev/null | grep -q bpmn-auto-layout; then
+            echo "::error::bpmn-auto-layout is back in the production tree. It is an"
+            echo "::error::unreleased alpha with no LICENSE file; see ADR-005."
+            exit 1
+          fi
 
   corpus-integrity:
     name: corpus integrity
@@ -122,7 +157,7 @@ jobs:
       # package corrupts the stream for every client, and the failure looks like a
       # protocol bug rather than a stray debug line — so it is a build failure here.
       - name: stdout is pure JSON-RPC
-        run: node packages/therblig/test/mcp-selftest.mjs
+        run: node --test backend/test/e2e/mcp.test.mjs backend/test/smoke/mcp.test.mjs
 
       # bench/scorer/gates.mjs resolves the schemas from `third_party/omg`, a bare
       # relative path that works only when the process starts at the repo root. In a
@@ -135,8 +170,8 @@ jobs:
           set -e
           REPO="$PWD"
           cd "$(mktemp -d)"
-          node "$REPO/packages/therblig/src/cli/bin.mjs" verify "$REPO/bench/corpus/miwg/C.9.1.bpmn"
-          node "$REPO/packages/therblig/src/cli/bin.mjs" lint "$REPO/bench/corpus/miwg/A.1.0.bpmn"
+          node "$REPO/backend/cli/bin.mjs" verify "$REPO/bench/corpus/miwg/C.9.1.bpmn"
+          node "$REPO/backend/cli/bin.mjs" lint "$REPO/bench/corpus/miwg/A.1.0.bpmn"
 
   probes:
     name: probes (expected RED — measurement, not regression)

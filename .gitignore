@@ -32,9 +32,15 @@ pnpm-debug.log*
 lerna-debug.log*
 .npm/
 coverage/
+
+# Next.js build output for the Studio; the app is source, the build is not.
+.next/
+.next-build/
+next-env.d.ts
 .nyc_output/
 
-# Environment and secrets
+# Environment and secrets. `.env` holds a real API key: `npm run bench:agent` is the only
+# thing that reads it, and nothing else in this repository needs it.
 .env
 .env.*
 !.env.example
@@ -55,6 +61,9 @@ desktop.ini
 # AI assistant local state — never published
 .claude/
 .cursor/
+.serena/
 .aider*
 CLAUDE.local.md
+# emitted from JSDoc by `npm run types`; never hand-edited
+types/
 .preview/

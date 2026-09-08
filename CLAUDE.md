@@ -9,25 +9,29 @@ therblig is an offline, engine-neutral BPMN 2.0 editing core. It is intended to 
 an MCP server, and other callers read, explain, lint, and safely edit existing `.bpmn`
 files without regenerating the whole diagram.
 
-Status matters. `backend/core/` contains the promoted structured-editing mechanism. The
-CLI and the MCP server now exist and work; nothing is published to npm. Do not describe
-planned surfaces as shipped — and note that "published library" is still a planned
-surface.
+Status matters: the library, CLI, MCP servers and local Studio exist in this repository.
+Nothing is published to npm. Historical benchmarks are evidence for their recorded
+revision, not an automatic claim about the merged product.
 
 ## Layout
 
 - `backend/core/` — the functional product core. No filesystem, CLI, network, or MCP I/O.
-- `backend/oracle/` — validation and semantic diff. Pure; reads trees, returns findings.
-- `backend/render/` — BPMN to SVG from DI coordinates. No bpmn-js, no DOM, no browser.
-- `backend/io/` — the filesystem edge: paths, revisions, schema validation, write barrier.
-- `backend/cli/`, `backend/mcp/` — the two callers. Neither holds product logic.
-- `backend/test/` — all tests for the backend, grouped by kind: unit, integration, e2e.
+- `backend/oracle/` — independent validation and semantic diff; pure tree inspection.
+- `backend/render/` — the receipt SVG renderer, using the document’s DI coordinates.
+- `backend/io/` — filesystem confinement, revisions, schema validation and atomic replacement.
+- `backend/cli/` — argument parsing and presentation. No product logic of its own.
+- `backend/contracts/` — a TypeScript consumer of the emitted `.d.mts`. Checked by `tsc`,
+  never executed, so it lives outside `backend/test/`.
+- `backend/mcp/` — the path-addressed and governed stdio callers; protocol handling,
+  revisions, and the governed caller’s handles and risk policy stay here.
+- `backend/test/` — backend tests grouped by kind, including unit, integration, smoke and e2e.
+- `frontend/` — the local Studio workspace, consuming the core and its generated types.
 - `bench/` — corpus, benchmark arms, probes, scorers, and task definitions.
 - `docs/` — empirical findings, architecture decisions, deferred work, and plans.
 - `third_party/` — vendored, provenance-recorded schemas.
 
 Never add a generic `src/` directory. A product domain owns its code and tests directly:
-`backend/`, or `frontend/` if a real frontend is introduced. Do not create empty domain,
+`backend/` and `frontend/`. Do not create empty domain,
 package, adapter, CLI, MCP, or infrastructure scaffolds.
 
 ## The one rule
@@ -42,9 +46,25 @@ their reproducer; changed behavior re-runs and updates the affected measurement.
 - `projection.mjs` owns the compact coordinate-free IR shown to an agent.
 - `adjacency.mjs` is the only module allowed to assign `sourceRef`, `targetRef`,
   `incoming`, or `outgoing`.
-- `patch.mjs` owns the four patch operations: `add`, `set`, `del`, and `connect`.
+- `patch.mjs` owns `add`, `set`, `del`, `connect`, `move`, and `message`.
+- `ops.mjs` compiles intent (`insertAfter`, `timeout`, `bypass`, `branch`, …) into plans of
+  patch primitives. It reads the IR and never the tree; the envelope's `risk` is computed
+  from the plan, and an op guarantees an exact inverse or refuses.
 - `placement.mjs` adds DI for new elements and measures DI coverage.
-- `vocabulary.mjs` owns the closed BPMN-to-IR node and event vocabularies.
+- `simulate.mjs` runs the decidable subset as discrete-event tokens; `diff.mjs` turns two
+  versions into what changed by id, and into the packet a reviewer reads; `conform.mjs`
+  replays an explicit trace against the model; `render.mjs` draws the DI the file carries.
+- `gates.mjs` owns the independent checks: parse, XSD, reference integrity, routing
+  semantics, bpmnlint, collateral change, diff sanity. `propose.mjs` applies a plan to an isolated copy, places what it created, scores
+  every gate, and returns the result without touching the caller's document.
+- `blocks/` holds one definition per BPMN element type: its IR word, DI shape, the notation it
+  wears (`role`, `glyph`, and where relevant `ring` and `border`), and the extras it projects and
+  builds. `registry.mjs` tabulates them and is the closed node vocabulary; a type named outside
+  `blocks/` fails the architecture test. `render.mjs` keeps no type table of its own — it asks the
+  registry, so a new block is drawable or it is a build error.
+- Pools, lanes, message flows, data objects and stores, annotations, groups and associations
+  are projected and drawn without being node blocks. `move` updates lane membership and
+  `message` creates collaboration message flows; data artifacts remain read-only.
 - `index.mjs` is the backend core's public surface.
 
 Benchmark modules may import or re-export the core. The core never imports `bench/`.
@@ -62,7 +82,8 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 - The first normalization may reformat a document; later edits must remain minimal.
 - Errors identify the invalid operation and element without leaking document content.
 - Never overwrite a user's BPMN file after a failed parse, patch, validation, or write.
-- No production code depends on `bpmn-js`, `dmn-js`, `form-js`, or `cmmn-js`.
+- Published runtime dependencies must satisfy the SPDX allowlist and licence-text scan
+  in `scripts/licence-guard.mjs`; watermark-bearing toolkits are excluded (ADR-009).
 
 ## Code conventions
 
@@ -82,14 +103,15 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 ## Tests
 
 - Use the built-in `node:test` runner and `node:assert/strict`.
-- Tests live in `backend/test/{unit,integration,property,smoke}` as each kind becomes real.
+- Tests live in `backend/test/{unit,integration,property,smoke,e2e}` as each kind becomes real.
 - Unit tests are pure and fast. Integration tests exercise real parsers, validators, and
-  committed BPMN fixtures. Smoke tests drive actual CLI/MCP entrypoints once they exist.
+  committed BPMN fixtures. Smoke tests spawn the actual CLI/MCP entrypoints; because coverage is
+  not collected across processes, the smoke suite — not a line count — is the CLI's gate.
 - A guard test must fail when the guard is removed. Exercise the production entrypoint,
   not a neighboring helper that cannot reproduce the failure.
 - Cover happy paths, malformed inputs, unknown operations, missing references, duplicate
   ids, graph invariants, round-trips, large files, and dependency failures where relevant.
-- Backend core coverage is 100% for lines, branches, and functions. If a line is truly
+- Backend core and I/O coverage is 100% for lines, branches, and functions. If a line is truly
   unreachable or platform-specific, redesign it or explain the measured exception before
   lowering a gate.
 - Keep fixtures deterministic. New external fixtures require provenance and a compatible
@@ -100,16 +122,29 @@ Benchmark modules may import or re-export the core. The core never imports `benc
 Use the lockfile and the repository scripts:
 
 ```sh
+make            # what every target does
+make dev        # the Studio on PORT (3000), over WORKSPACE (the repository)
+make check      # the gate
+make install    # npm ci for both workspaces
+
 npm ci
 npm run lint
 npm test
 npm run test:coverage
 npm run corpus
 npm run check
+
+node backend/cli/main.mjs explain bench/corpus/miwg/C.9.0.bpmn
+node backend/cli/main.mjs apply file.bpmn --op timeout --args '{"on":"X","after":"P3D","to":"Y","name":"Late"}'
 ```
 
-`npm run check` is the local and CI quality gate. Do not call a change complete if this
-command is red or was not run after the final edit.
+`npm run check` — `make check` — is the local and CI quality gate. Do not call a change complete
+if this command is red or was not run after the final edit.
+
+There is no backend daemon. The core is a library, the CLI is a command, and the MCP server speaks
+stdio to the client that spawned it, so `make dev` runs the Studio and the Studio imports the core
+in process. Because Next loads the core as an external package, Node caches it: `scripts/dev.mjs`
+watches `backend/` and restarts the dev server, or an edit there stays invisible to the page.
 
 ## Dependencies and security
 

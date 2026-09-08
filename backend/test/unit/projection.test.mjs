@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { blocks } from '../../core/registry.mjs';
 import { parse, project } from '../../core/index.mjs';
-import { readFixture } from '../support/fixture.mjs';
+import { normalizedFixture, readFixture } from '../support/fixture.mjs';
 
 test('project creates a compact coordinate-free view with original identifiers', async () => {
   const document = await parse(await readFixture());
@@ -30,25 +31,34 @@ test('project scopes nodes and flows to one container', async () => {
   assert.ok(projection.flows.every((flow) => nodeIds.has(flow.from) && nodeIds.has(flow.to)));
 });
 
-test('project represents defaults, multiple events, and event subprocesses', async () => {
+test('each block projects the fields BPMN gives its own type, and only those', async () => {
+  const core = await import('../../core/index.mjs');
   const document = await parse(await readFixture());
-  const byId = new Map();
-  for (const element of (await import('../../core/index.mjs')).walk(document.definitions)) {
-    if (element.id) byId.set(element.id, element);
-  }
+  core.applyPatch(document, [{ op: 'add', type: 'subprocess', in: 'Payment', id: 'Sub' }]);
+  const byId = core.index(document.definitions);
 
-  const review = byId.get('Review');
-  review.eventDefinitions = [
+  // An event carries kinds; an unknown vendor kind passes through under its BPMN type.
+  byId.get('Start_1').eventDefinitions = [
     document.moddle.create('bpmn:TimerEventDefinition'),
     { $type: 'vendor:CustomEventDefinition' },
   ];
-  review.default = byId.get('Flow_3');
-  review.triggeredByEvent = true;
+  // `default` belongs to activities and gateways alike.
+  byId.get('Review').default = byId.get('Flow_3');
+  byId.get('Sub').triggeredByEvent = true;
+  // Properties BPMN does not give a user task: the projection must not invent them.
+  byId.get('Review').eventDefinitions = [document.moddle.create('bpmn:TimerEventDefinition')];
+  byId.get('Review').triggeredByEvent = true;
 
-  const node = project(document.definitions).nodes.find((candidate) => candidate.id === 'Review');
-  assert.deepEqual(node.event, ['timer', 'vendor:CustomEventDefinition']);
-  assert.equal(node.default, 'Flow_3');
-  assert.equal(node.eventSubprocess, true);
+  const nodes = project(document.definitions).nodes;
+  const node = (id) => nodes.find((candidate) => candidate.id === id);
+
+  assert.deepEqual(node('Start_1').event, ['timer', 'vendor:CustomEventDefinition']);
+  assert.equal(node('Review').default, 'Flow_3');
+  assert.equal(node('Sub').eventSubprocess, true);
+
+  assert.equal(node('Review').event, undefined);
+  assert.equal(node('Review').eventSubprocess, undefined);
+  assert.equal(node('Sub').default, undefined);
 });
 
 test('project preserves intentionally unresolved collaboration references', () => {
@@ -131,4 +141,22 @@ test('scoped projection retains an attached event even when its container differ
     projection.nodes.map((node) => node.id),
     ['Host', 'Attached'],
   );
+});
+
+test('the artifacts a diagram carries are projected, without becoming addable node types', async () => {
+  const { document } = await normalizedFixture('miwg/B.1.0.bpmn');
+  const ir = project(document.definitions);
+
+  const kinds = new Set((ir.data ?? []).map((item) => item.kind));
+  assert.ok(kinds.has('object'), 'a data object reference');
+  assert.ok(kinds.has('store'), 'a data store reference');
+  assert.equal((ir.notes ?? []).length, 1, 'the text annotation');
+  assert.equal((ir.groups ?? []).length, 1, 'the group');
+  assert.ok((ir.links ?? []).length > 0, 'what the artifacts are associated with');
+
+  // They are read, never written: the closed vocabulary is what `add` accepts, and an artifact is
+  // not in it.
+  const words = new Set(blocks.map((candidate) => candidate.ir));
+  for (const item of ir.data ?? []) assert.equal(words.has(item.kind), false, item.kind);
+  assert.equal((ir.nodes ?? []).some((node) => node.type === 'object'), false);
 });

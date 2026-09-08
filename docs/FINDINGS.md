@@ -9,6 +9,19 @@ Environment: Windows 11, Node 22.23.2 (portable), `bpmn-moddle@10.2.0`,
 Corpus: the 21 BPMN MIWG reference models (`Reference/*.bpmn`, pinned at
 `cb26295`, 2026-03-11, CC BY 3.0) plus one hand-authored Camunda 8 file.
 
+## Evidence scope after the Studio merge
+
+F1–F17 below preserve the corrected `origin/main` record at `7722884`. The Studio
+branch at `eee02c3` independently numbered different findings F10–F17; those are
+retained as **Studio F10–Studio F17** at the end, and their cross-references are
+qualified. Unqualified F1–F9 refer to the shared findings and their corrections.
+
+All measurements here are historical. Dates, operating systems, Node versions,
+corpus sizes and script paths describe the original runs, not a verification of the
+merged checkout. In particular, Studio F12's rigid-shape result does not establish
+label preservation: F11 documents why that instrument could miss detached labels.
+Rerun the named probes and current quality gates before making a merged-branch claim.
+
 ---
 
 ## F1 — bpmn-moddle round-trips Camunda 8 / Zeebe extensions losslessly
@@ -188,7 +201,8 @@ at a nonexistent process) needs a hand-written pass over the moddle tree.
 
 ## F8 — BPMN stores adjacency twice, and moddle maintains only one side
 
-**2026-09-01 · `bench/arms/ir.mjs`, found by `place-selftest.mjs`**
+**2026-09-01 · `bench/arms/ir.mjs`, found by `place-selftest.mjs`; now enforced by
+`backend/core/adjacency.mjs` and `backend/test/unit/patch.test.mjs`**
 
 A sequence flow's connectivity lives in two places: on the flow
 (`sourceRef` / `targetRef`) and on each endpoint node (`<incoming>` / `<outgoing>`
@@ -544,3 +558,285 @@ gates writing was not, which is the worse way round.
 test both before and after, because the hand-written tests use files whose elements have
 no documentation, no performers and no undrawn siblings. A sweep over nine exporters'
 output found all three in one run.
+
+
+# Studio findings
+
+The following evidence was recorded on the Studio branch before reconciliation.
+Keep its results and limitations together; these numbers are not fresh merge results.
+
+## Studio F10 — nothing in the toolchain checks a BPMN reference, and the corpus is 21/22 clean
+
+Every case below is a hand-built document that is **XSD-valid and passes `bpmnlint:correctness`**.
+The probe is `backend/test/unit/references.test.mjs`, which asserts both of those before asserting
+that the reference gate catches the break — a rule that another gate already covers does not
+belong in this one.
+
+| broken reference | XSD | bpmnlint | `references` |
+|---|---|---|---|
+| sequence flow whose target does not exist | passes | passes | **catches** |
+| boundary event attached to a missing id | passes | passes | **catches** |
+| `BPMNEdge`/`BPMNShape` drawn for a missing element | passes | passes | **catches** |
+| sequence flow reaching into a subprocess | passes | passes | **catches** |
+| boundary event whose host is in another container | passes | passes | **catches** |
+| lane claiming a node from another process | passes | passes | **catches** |
+| gateway default flow that does not leave it | passes | passes | **catches** |
+| duplicate element id | **catches** | passes | not a rule |
+
+Duplicate ids are the XSD's job (the `ID` type) and are deliberately absent from the gate.
+`calledElement` is also absent: a call activity legitimately names a process in another file, so
+a single-file gate cannot judge it.
+
+### The corpus
+
+| measure | result |
+|---|---|
+| files with no reference findings | **21 / 22** |
+| `miwg/C.7.0` | one `BPMNEdge` with no `bpmnElement` |
+
+`C.7.0`'s orphan edge is XSD-legal — `bpmnElement` is optional in BPMNDI — and it is why the gate
+is **differential** inside `scoreAll`, the same bargain as `bpmnlint:recommended` in ADR-006:
+an edit is judged on the references it broke, never on the ones it inherited. The absolute
+`references()` export still reports everything, which is what a `lint` command wants.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/references.test.mjs
+```
+
+## Studio F11 — deleting an element must delete what it contains, and the reference gate proves it
+
+`miwg/C.4.0`'s `_aa275782…` user task carries an `inputOutputSpecification` with a `dataOutput`
+and an `outputSet`, plus a `dataOutputAssociation`. Removing the task removed those with it — but
+`del` reported none of them as changed and left the `BPMNEdge` that drew the association pointing
+at nothing.
+
+| measure | before | after |
+|---|---|---|
+| `noCollateral` unexpected ids on a `bypass` of that task | **3** | **0** |
+| `references` findings introduced | **1** (`unresolved-reference`, a `BPMNEdge`) | **0** |
+
+The bug predates the reference gate; the gate is what surfaced it on the first real-fixture edit.
+Containment is `child.$parent === element` — `walk()` follows every reference and would have
+reached the whole graph, so `document.mjs` grew a separate `contained()` for it.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/ops-graph.test.mjs
+```
+
+### A note on `no-implicit-split` and message flows
+
+Adding a message flow from a task that already has one outgoing sequence flow makes
+`bpmnlint:recommended` report `no-implicit-split` on that task. BPMN does not split a token on a
+message flow, so the rule is counting something that does not branch. The gate reports the style
+delta rather than special-casing a linter rule; `recommended` is a style opinion (ADR-006), and
+`correctness` stays green.
+
+## Studio F12 — a fork makes room, it does not reflow
+
+F9 established that "made room" and "reflowed" are distinguishable: making room is a rigid
+translation where every shape that moved moved by the same delta, and a relayout scrambles them
+into many. The fork ops are the hardest structural edit in `bench/tasks/TASKS.md` — a split and a
+join and two branches between them — so they are where that distinction had to be re-measured.
+
+| file | `insertAfter` | `branch` | `parallel` | shapes / total |
+|---|---|---|---|---|
+| `handmade/zeebe-roundtrip` | 1 delta | 1 delta | 1 delta | 2 / 4 |
+| `miwg/A.1.0` | 1 delta | 1 delta | 1 delta | 3 / 5 |
+| `miwg/C.9.1` | 1 delta | 1 delta | 1 delta | 8 / 11 |
+| `miwg/C.9.0` | 1 delta | 1 delta | 1 delta | 15–17 / 26 |
+| `miwg/C.4.0` | 1 delta | 1 delta | 1 delta | 35–39 / 53 |
+| `miwg/B.2.0` | 1 delta | 1 delta | 1 delta | 59–66 / 99 |
+
+**18 of 18 combinations: one distinct delta, verdict "made room".** No plan-level placement pass
+was needed — placing the minted elements one at a time already produces a single rigid shift,
+because each new element finds its room in the gap the first one opened.
+
+`B.2.0` is missing DI for 5 of its 185 elements before any edit and for the same 5 after: every
+element the ops created got a shape or an edge. The gap is the file's, not the edit's.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/ops-fork.test.mjs
+```
+
+## Studio F13 — an op that adds an element must label it, or the model gets worse
+
+Three ops mint elements that BPMN expects to carry a label, and the first end-to-end run of each
+one failed `bpmnlint:recommended` for exactly that reason:
+
+| op | element | rule |
+|---|---|---|
+| `branch` | the diverging gateway | `label-required` |
+| `branch` | its conditional exit | `label-required` |
+| `timeout` / `onError` | the boundary event | `label-required` |
+
+All three now take a name and pass it through, and none of them invents one: an unlabelled
+decision or handler is a model a reader cannot follow, and silently naming it for them would be
+worse than the gate saying so.
+
+Measured through the real entrypoint:
+
+```sh
+treadle apply p.bpmn --op timeout --args '{"on":"…","after":"P3D","to":"…"}'
+# fail lintClean
+treadle apply p.bpmn --op timeout --args '{"on":"…","after":"P3D","to":"…","name":"Too slow"}'
+# ok   lintClean
+```
+
+The one style delta the ops do not fix is `no-implicit-split` on a message flow's source (Studio F11),
+which is bpmnlint counting something BPMN does not branch on.
+
+## Studio F14 — four harness defects, found by spending $6 before claiming anything
+
+The bench was run against the real API on 2026-09-06. The first three cells would have printed
+`raw 1/1, raw_ir 1/1, treadle 0/1`. **That scoreboard was false**, and so were the two after it.
+Four defects had to be closed before a single cell measured what it claimed to.
+
+| # | defect | how it showed | fix |
+|---|---|---|---|
+| 1 | the structured arm received no tools | `mcp_servers: connected`, zero `mcp__treadle__*` in context; the agent spent its session calling `ToolSearch` for `Read` and `Edit` | see below |
+| 2 | a rejected schema drops a whole server | `z.record(z.string(), z.unknown())` renders as `propertyNames` + `additionalProperties`, which the CLI rejects — silently, and for **every** tool on that server | `z.looseObject({})` |
+| 3 | tool search deferred what was left | 16 tools sat behind `ToolSearch` instead of being in the turn-one prompt | `ENABLE_TOOL_SEARCH=false` |
+| 4 | **the arms were not isolated** | arm A called `mcp__treadle__open`. `allowedTools` auto-approves rather than restricts, and naming a tool in `disallowedTools` did not remove it either | each arm gets only the server it should have; `only` filters the tool list |
+
+Defect 1 was diagnosed wrongly at first: three documented `alwaysLoad` paths were tried and blamed
+before defect 2 turned out to be the cause. The record is kept as it happened — `alwaysLoad` on
+`createSdkMcpServer` genuinely is not propagated onto the config it returns, but that was not why
+the tools were missing.
+
+**A correction.** An earlier version of this finding claimed the developer's machine leaked into
+every cell, citing 16 skills, 48 slash commands and 5 agents in the `init` message. That was wrong:
+`plugins: []` in the same message shows `settingSources: []` did its job, and the skills and slash
+commands are the CLI's own — identical for anyone running this. The claim is withdrawn.
+
+Defect 4 is the one that would have poisoned everything. Two arms sharing a tool surface is not a
+comparison, and nothing in the scoreboard would have shown it; only the recorded transcript did.
+
+### What the harness now refuses to do
+
+A cell that used none of its own arm's tools is scored `HARNESS`, not as a product failure —
+that guard is what caught defect 1 instead of turning it into a finding about the product.
+
+### Calibration, not a result
+
+One cell (T04, one run per arm) after all four fixes:
+
+| arm | what it called | turns | cost |
+|---|---|---|---|
+| `raw` | `Read → Edit ×5 → Grep` | 8 | $0.54 |
+| `raw_ir` | `open → project → Read → Edit ×5 → lint` | 11 | $0.75 |
+| `treadle` | `open → project → bypass → publish → lint` | 6 | $0.34 |
+
+All three produced a correct edit. **These numbers are a budget calibration and nothing else.**
+N=1 on one task in one category; the same cell has cost $0.24 and $0.80 across runs on identical
+inputs. The 20 × 3 × 3 design exists because a single cell cannot distinguish a result from
+variance, and no percentage may be quoted from this table.
+
+## Studio F15 — the first valid bench cell found two defects in the shipped MCP server
+
+Neither was visible from the test suite, and both came out of one transcript.
+
+**The model had to guess argument names.** Every op declared `args: { type: 'object' }`, so nothing
+told an agent what went inside. The transcript shows `bypass` called three times in a row with
+`{target}`, then `{node}`, then `{id}`. The design document that specified this server had already
+warned against it — *"uma ferramenta genérica `apply(op, args)` joga essa acurácia fora"* — and the
+implementation did it anyway. Every op now declares its real arguments, with `additionalProperties:
+false`.
+
+**The idempotency cache was keyed by `patch_id` alone.** The agent reused one id across its retries
+and then on `publish`, which found the `bypass` result under that key and returned it as its own:
+nothing was written, and the agent reported success. A `patch_id` is the caller's, and a caller
+reuses one; the tool is part of the identity of a call, so the key is now `tool:patch_id`.
+
+Both are covered by smoke tests that spawn the real stdio server. Reproduce:
+
+```sh
+node --test backend/test/smoke/mcp.test.mjs
+```
+
+## Studio F16 — three candidate semantic rules, and only one of them is ours to write
+
+The plan scoped a graph-global `check` module from whatever the bake-off revealed. The bake-off
+has not run, so the scope came from the same discipline Studio F10 used instead: propose a rule, build the
+document it should catch, and check whether anything already catches it.
+
+| candidate | XSD | `bpmnlint:correctness` | `bpmnlint:recommended` | verdict |
+|---|---|---|---|---|
+| a node unreachable from any start | passes | passes | **`no-disconnected`** | not ours |
+| a node that reaches no end | passes | **catches** | — | not ours |
+| an event gateway whose target cannot wait | passes | passes | passes | **ours** |
+
+An event-based gateway is a race, and every path out of it must begin with something that can
+wait — a catch event or a receive task. A plain task on one of those paths wins the race the
+instant the gateway is reached, so the gateway decides nothing. Nothing in the toolchain says so.
+
+That is the whole of the `semantics` gate: **one rule**, because one rule is what the evidence
+supports. Two of the three candidates would have been duplicated work, and `explain` already
+reports reachability as a reading rather than as a gate, which is where it belongs when bpmnlint
+gates it.
+
+The 22 MIWG models are clean under this rule, so it is a hard gate with a differential wrapper in
+`scoreAll` — the same bargain as `references` and `bpmnlint:recommended`.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/semantics.test.mjs
+```
+
+## Studio F17 — the corpus can be simulated, and what stops it is a missing scenario, not a missing feature
+
+`simulate()` runs the 21 MIWG models and the two handmade fixtures. Every run either produces a
+cycle time or says exactly what it could not do.
+
+| outcome | files | what it means |
+|---|---|---|
+| ran | 16 | reached an end on every run |
+| **undecided** | 2 (`C.1.0`, `C.1.1`) | a gateway the caller gave nothing to decide with |
+| **unbounded** | 2 (`C.2.0`, `C.7.0`) | a rework loop the scenario never exits |
+| **unsupported** | 1 (`B.2.0`) | an inclusive join, refused by name |
+
+Only one of the four stopping conditions is a limit of the machine. The other three are questions
+for whoever is asking, and answering them makes the model run:
+
+```
+C.7.0, no scenario           → p50 null, undecided: 1 gateway
+C.7.0, { Yes: 0.8, No: 0.2 } → p50 5h, p90 7h
+```
+
+That difference is the finding. `C.7.0` sends an unapproved advertisement back to be approved
+again, and the 7-hour p90 against a 5-hour p50 is the rework showing up in the tail — which is the
+only reason to simulate a process at all.
+
+### Two things the corpus taught the design
+
+**A real gateway carries a label, not an expression.** Every exclusive gateway in the corpus
+documents its decision with a flow name — `Yes`, `No`, `covered` — and not one carries a formal
+condition. A scenario keyed only by condition text would have addressed nothing, so `when` accepts
+a flow's condition, its id, or its label.
+
+**Weights on one gateway are a distribution.** Sampling each exit independently made
+`{ Yes: 0.8, No: 0.2 }` fall through 16% of the time and report the gateway undecided — a scenario
+the caller had every reason to think was complete. Naming one path at `0.25` now leaves `0.75` to
+be shared by the rest.
+
+### What it refuses
+
+`p50` is `null` whenever anything was refused, undecided, deadlocked or unbounded. A number
+alongside a warning gets quoted without the warning.
+
+An inclusive join, a complex gateway, compensation and multi-instance are refused by name: each
+needs information no node carries on its own. A subprocess and a call activity run as one opaque
+step, which is stated rather than hidden. And `synthetic: true` says out loud when no duration in
+the file was annotated, because a p50 to the hour on invented input is opinion with decimal places.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/simulate.test.mjs
+```

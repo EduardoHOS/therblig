@@ -52,7 +52,9 @@ if (kb > MAX_KB) problems.push(`unpacked ${kb.toFixed(0)}KB exceeds the ${MAX_KB
 const declared = Object.keys(JSON.parse(
   execFileSync('npm', ['pkg', 'get', 'dependencies'], { encoding: 'utf8', shell: process.platform === 'win32' }),
 ));
-for (const banned of ['bpmn-auto-layout', 'bpmnlint', 'bpmn-js', 'diagram-js']) {
+// The governed core's lintClean export imports bpmnlint at runtime. Its MIT licence is
+// checked by licence-guard; unlike the layouter it must be installed for consumers.
+for (const banned of ['bpmn-auto-layout', 'bpmn-js', 'diagram-js']) {
   if (declared.includes(banned)) problems.push(`${banned} is a runtime dependency; ADR-005 and ADR-009 forbid it`);
 }
 

@@ -20,12 +20,8 @@ async function bpmnFiles(directory) {
 
 test('the functional core round-trips and projects every corpus document', async () => {
   const files = await bpmnFiles(CORPUS_ROOT);
-  // 21 MIWG reference models, plus two hand-authored fixtures. The second,
-  // collapsed-subprocess.bpmn, exists because every collapsed sub-process in the MIWG
-  // corpus is empty, so nothing in it could catch DI coverage demanding shapes for
-  // children that a collapsed sub-process deliberately does not draw — a check that
-  // could only ever pass. See docs/FINDINGS.md F16.
-  assert.equal(files.length, 23);
+  // 21 MIWG models and three hand-authored fixtures, each recorded in PROVENANCE.md.
+  assert.equal(files.length, 24, 'a new fixture needs a PROVENANCE entry, so it is counted here');
 
   for (const file of files) {
     const xml = await readFile(file, 'utf8');

@@ -56,7 +56,10 @@ function satisfies(expr) {
 }
 
 function productionDirs() {
-  const out = execFileSync('npm', ['ls', '--omit=dev', '--all', '--parseable'], {
+  // Audit the published root package. Including the private Studio workspace follows
+  // its file:.. link back into the benchmark's dev tree and misclassifies the SDK as
+  // a shipped dependency. Workspaces do not ship in the root tarball.
+  const out = execFileSync('npm', ['ls', '--omit=dev', '--workspaces=false', '--all', '--parseable'], {
     encoding: 'utf8', shell: process.platform === 'win32',
   });
   return out.split(/\r?\n/).filter(Boolean);

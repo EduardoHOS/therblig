@@ -16,12 +16,11 @@
 // case-sensitive compare would let the second escape a root declared as the first.
 import { realpath } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { resolve, relative, extname, isAbsolute, sep, parse } from 'node:path';
+import platformPath, { resolve, extname, isAbsolute, parse, win32 } from 'node:path';
 import { homedir } from 'node:os';
 import { fail } from './errors.mjs';
 
 const ALLOWED_EXT = new Set(['.bpmn', '.xml']);
-const insensitive = process.platform === 'win32';
 
 /** Resolve a root directory once, at server start. */
 export async function resolveRoot(dir) {
@@ -74,14 +73,14 @@ export async function confine(root, candidate) {
   return realTarget;
 }
 
-/** True when `target` is the root itself or sits underneath it. */
-export function within(root, target) {
-  const a = insensitive ? root.toLowerCase() : root;
-  const b = insensitive ? target.toLowerCase() : target;
-  const rel = relative(a, b);
+/** True when `target` sits underneath root, using the selected platform's path rules. */
+export function within(root, target, paths = platformPath) {
+  const a = paths === win32 ? root.toLowerCase() : root;
+  const b = paths === win32 ? target.toLowerCase() : target;
+  const rel = paths.relative(a, b);
   // Empty means target IS the root — a directory, never a file we should open.
   if (rel === '') return false;
-  if (isAbsolute(rel)) return false;                       // different drive on win32
-  if (rel === '..' || rel.startsWith(`..${sep}`)) return false;
+  if (paths.isAbsolute(rel)) return false;                 // different drive on win32
+  if (rel === '..' || rel.startsWith(`..${paths.sep}`)) return false;
   return true;
 }

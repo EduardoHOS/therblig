@@ -1,0 +1,269 @@
+import {
+  branch,
+  bypass,
+  guard,
+  insertAfter,
+  lintClean,
+  message,
+  moveToLane,
+  onError,
+  parallel,
+  parses,
+  project,
+  propose,
+  references,
+  rename,
+  review,
+  risk,
+  timeout,
+  xsdValid,
+} from '../core/index.mjs';
+import { writeBpmnAtomic } from '../io/bpmn-file.mjs';
+import { explain } from '../cli/explain.mjs';
+
+// A refusal the model can act on: it names the rule and the remedy, and reaches the client as a
+// tool error rather than a protocol error, which is what the spec says models can self-correct from.
+function refuse(code, message) {
+  const error = new Error(`${code}: ${message}`);
+  error.code = code;
+  return error;
+}
+
+const OPS = {
+  branch,
+  bypass,
+  guard,
+  insertAfter,
+  message,
+  moveToLane,
+  onError,
+  parallel,
+  rename,
+  timeout,
+};
+
+const HANDLE = { type: 'string', description: 'From open. Opaque; carry it forward unchanged.' };
+const object = (properties, required) => ({
+  type: 'object',
+  properties,
+  required,
+  additionalProperties: false,
+});
+
+const id = (description) => ({ type: 'string', description });
+const STEP = object(
+  { type: id('An IR word: user, service, task, xor, and, subprocess, …'), name: { type: 'string' } },
+  ['type'],
+);
+
+// The arguments each op takes, in full. A generic `args: object` throws away the accuracy the
+// schema exists to give: the first valid bench cell watched an agent guess `target`, then `node`,
+// then `id` for bypass, because nothing told it which was right.
+const ARGS = {
+  insertAfter: object(
+    { anchor: id('The node to insert after.'), step: STEP, via: id('Which exit, when the anchor has more than one.') },
+    ['anchor', 'step'],
+  ),
+  timeout: object(
+    {
+      on: id('The activity that may run long.'),
+      after: id('An ISO-8601 duration, such as P3D or PT2H.'),
+      to: id('Where the timeout goes.'),
+      name: { type: 'string', description: 'Labels the handler. Without it the model reads as unlabelled.' },
+    },
+    ['on', 'after', 'to'],
+  ),
+  onError: object(
+    { on: id('The activity that may fail.'), to: id('Where the failure goes.'), name: { type: 'string' } },
+    ['on', 'to'],
+  ),
+  rename: object({ id: id('The element to rename.'), name: { type: 'string' } }, ['id', 'name']),
+  bypass: object({ id: id('The step to remove; the chain is healed across it.') }, ['id']),
+  moveToLane: object({ id: id('The node to move.'), lane: id('A lane of the same container.') }, ['id', 'lane']),
+  guard: object(
+    {
+      flow: id('A flow leaving a gateway.'),
+      if: { type: 'string', description: 'The condition expression. Pass this or default, never both.' },
+      default: { type: 'boolean', description: 'Make this the gateway default.' },
+    },
+    ['flow'],
+  ),
+  message: object(
+    { from: id('A node in one pool.'), to: id('A node in another pool.'), name: { type: 'string' } },
+    ['from', 'to'],
+  ),
+  branch: object(
+    {
+      anchor: id('The node to branch after.'),
+      when: { type: 'string', description: 'The condition for the yes path.' },
+      yes: { type: 'array', items: STEP },
+      no: { type: 'array', items: STEP, description: 'Omit for a straight-through default.' },
+      via: id('Which exit, when the anchor has more than one.'),
+      name: { type: 'string', description: 'Labels the gateway.' },
+      label: { type: 'string', description: 'Labels the conditional exit.' },
+    },
+    ['anchor', 'when', 'yes'],
+  ),
+  parallel: object(
+    {
+      anchor: id('The node to fork after.'),
+      branches: { type: 'array', items: { type: 'array', items: STEP } },
+      via: id('Which exit, when the anchor has more than one.'),
+    },
+    ['anchor', 'branches'],
+  ),
+};
+
+// Every mutating tool takes the same three: which document, which revision it was reasoned
+// against, and an id that makes a retry idempotent.
+const MUTATING = {
+  handle: HANDLE,
+  base_rev: { type: 'string', description: 'The rev this edit was reasoned against.' },
+  patch_id: {
+    type: 'string',
+    description: 'Caller-chosen. The same id on the same tool applies once; reuse it to retry.',
+  },
+};
+
+export function toolsFor({ store, root, autonomous }) {
+  const tools = [];
+  const add = (name, description, inputSchema, handler) =>
+    tools.push({ name, description, inputSchema, handler });
+
+  add(
+    'open',
+    'Open a .bpmn file inside the workspace. Returns an opaque handle and the current revision; both are needed by every other tool. Handles live as long as this server process.',
+    object({ path: { type: 'string' } }, ['path']),
+    async ({ path }) => store.open(path),
+  );
+
+  add(
+    'project',
+    'The coordinate-free IR of the published revision: ids, types, names, containers, lanes and flows. No coordinates, and no XML.',
+    object({ handle: HANDLE, scope: { type: 'string' } }, ['handle']),
+    async ({ handle, scope }) => project(store.head(handle).document.definitions, { scope }),
+  );
+
+  add(
+    'explain',
+    'A deterministic reading of the process: what each container holds, which handlers are attached, what can never run and what never ends.',
+    object({ handle: HANDLE }, ['handle']),
+    async ({ handle }) => {
+      const { document } = store.head(handle);
+      return { text: explain('document', project(document.definitions)) };
+    },
+  );
+
+  add(
+    'lint',
+    'Run every single-document gate against the published revision: parse, XSD, reference integrity and bpmnlint correctness.',
+    object({ handle: HANDLE }, ['handle']),
+    async ({ handle }) => {
+      const { xml } = store.head(handle);
+      return {
+        parses: await parses(xml),
+        xsdValid: await xsdValid(xml),
+        references: await references(xml),
+        lintClean: await lintClean(xml, { config: { extends: 'bpmnlint:correctness' } }),
+      };
+    },
+  );
+
+  const dryRun = async ({ handle, base_rev: baseRev, patch_id: patchId }, envelope) => {
+    const remembered = store.remembered(handle, envelope.op, patchId);
+    if (remembered) return remembered;
+
+    store.requireHead(handle, baseRev);
+    const { document } = store.head(handle);
+    const result = await propose(document, envelope.plan);
+    const rev = await store.candidate(handle, result.xml, { risk: envelope.risk, ok: result.ok });
+
+    return store.remember(handle, envelope.op, patchId, {
+      rev,
+      op: envelope.op,
+      risk: envelope.risk,
+      explain: envelope.explain,
+      plan: envelope.plan,
+      inverse: envelope.inverse,
+      minted: envelope.minted,
+      ok: result.ok,
+      gates: result.gates,
+      diff: result.diff,
+    });
+  };
+
+  for (const [name, op] of Object.entries(OPS)) {
+    add(
+      name,
+      `Propose a ${name} edit. Nothing is written: the result carries the plan, its exact inverse, the computed risk, every gate and the measured diff. Publish the returned rev to make it real.`,
+      object({ ...MUTATING, args: ARGS[name] }, ['handle', 'base_rev', 'patch_id', 'args']),
+      async (input) => {
+        const { document } = store.head(input.handle);
+        return dryRun(input, op(project(document.definitions), input.args));
+      },
+    );
+  }
+
+  add(
+    'patch',
+    'Propose a plan of raw primitives (add, set, del, connect) for what the named ops do not cover. Judged by exactly the same gates and the same computed risk.',
+    object(
+      {
+        handle: MUTATING.handle,
+        base_rev: MUTATING.base_rev,
+        patch_id: MUTATING.patch_id,
+        plan: { type: 'array', items: { type: 'object' } },
+      },
+      ['handle', 'base_rev', 'patch_id', 'plan'],
+    ),
+    async (input) =>
+      dryRun(input, {
+        op: 'patch',
+        plan: input.plan,
+        inverse: [],
+        minted: [],
+        risk: risk(input.plan),
+        explain: `${input.plan.length} operations, as given.`,
+      }),
+  );
+
+  add(
+    'review',
+    'What a proposed revision changes against the published one, as a packet a human reads: added, removed, renamed, rerouted and reowned elements by id, the gates, and the cycle-time delta when the model carries durations.',
+    object(
+      { handle: HANDLE, rev: { type: 'string' }, when: { type: 'object' } },
+      ['handle', 'rev'],
+    ),
+    async ({ handle, rev, when }) => ({
+      text: await review(store.head(handle).xml, store.revision(handle, rev).xml, { when }),
+    }),
+  );
+
+  add(
+    'publish',
+    `Write a proposed revision to disk, atomically. Refused if any gate failed, or if the edit's risk is above this server's allowance (${[...autonomous].join(', ')}).`,
+    object(
+      { handle: HANDLE, rev: { type: 'string' }, patch_id: { type: 'string' } },
+      ['handle', 'rev', 'patch_id'],
+    ),
+    async ({ handle, rev, patch_id: patchId }) => {
+      const remembered = store.remembered(handle, 'publish', patchId);
+      if (remembered) return remembered;
+
+      const { xml, path, proposal } = store.revision(handle, rev);
+      if (!proposal.ok) throw refuse('gate-failed', `Revision "${rev}" did not pass every gate`);
+      if (!autonomous.has(proposal.risk)) {
+        throw refuse(
+          'requires-approval',
+          `publishing a ${proposal.risk} edit needs a human — this server allows ${[...autonomous].join(', ')}`,
+        );
+      }
+
+      await writeBpmnAtomic(path, xml, { root });
+      store.promote(handle, rev);
+      return store.remember(handle, 'publish', patchId, { rev, published: true, risk: proposal.risk });
+    },
+  );
+
+  return tools.sort((a, b) => a.name.localeCompare(b.name));
+}

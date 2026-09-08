@@ -1,4 +1,5 @@
-// The MCP server. Five tools, stdio only, no protocol sessions.
+#!/usr/bin/env node
+// The path-based MCP server. Five tools, stdio only, no protocol sessions.
 //
 // ADR-010 rev. 2: every tool takes a path as an ordinary argument and the server holds
 // no cross-call state. Consistency travels in `base_rev` — the first 12 hex of the
@@ -10,7 +11,10 @@
 // with dry_run: false AND the base_rev the caller was given — so an edit built against
 // bytes that have since changed on disk is refused rather than overwriting a save from
 // somebody's modeller. A refused edit never opens the file for writing at all.
-import { McpServer } from '@modelcontextprotocol/server';
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { McpServer, fromJsonSchema } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 
 import { parse } from '../core/document.mjs';
@@ -23,6 +27,40 @@ import { message } from '../oracle/invariants.mjs';
 import { readWithRev } from '../io/rev.mjs';
 import { confine } from '../io/paths.mjs';
 import { TherbligError } from '../io/errors.mjs';
+import { createStore } from './store.mjs';
+import { toolsFor } from './tools.mjs';
+
+// Existing treadle clients use handles, revisions, and publish policy. Keep this
+// contract in its own server so therblig's five path-based tools remain stateless.
+const AUTONOMOUS = new Set((process.env.TREADLE_ALLOW ?? 'safe,additive').split(','));
+
+export function build({ root = process.cwd(), autonomous = AUTONOMOUS } = {}) {
+  const store = createStore({ root });
+  const server = new McpServer(
+    { name: 'treadle', version: '0.0.0' },
+    { capabilities: { tools: {} } },
+  );
+
+  for (const tool of toolsFor({ store, root, autonomous })) {
+    server.registerTool(
+      tool.name,
+      { description: tool.description, inputSchema: fromJsonSchema(tool.inputSchema) },
+      async (input) => {
+        try {
+          const result = await tool.handler(input);
+          return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        } catch (error) {
+          // Never a stack, never document content: the model gets the rule and the remedy.
+          const code = error.code ?? 'error';
+          const text = error.message.startsWith(`${code}:`) ? error.message : `${code}: ${error.message}`;
+          return { content: [{ type: 'text', text }], isError: true };
+        }
+      },
+    );
+  }
+
+  return server;
+}
 
 const json = (value) => ({
   content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
@@ -170,4 +208,20 @@ export function createServer(root) {
   }));
 
   return server;
+}
+
+// Preserve the treadle-mcp executable without opening a second protocol stream when
+// therblig-mcp imports createServer. Resolve npm's bin symlink before comparing.
+let entrypoint;
+if (process.argv[1] && process.argv[1] !== '-') {
+  try {
+    entrypoint = realpathSync(process.argv[1]);
+  } catch (error) {
+    // An importer may run from stdin or have removed its own script after loading.
+    // Neither is this module's executable entrypoint.
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
+  await serveStdio(() => build(), { onerror: (error) => process.stderr.write(`${error.message}\n`) });
 }

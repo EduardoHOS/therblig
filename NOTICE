@@ -38,6 +38,19 @@ BPMN MIWG reference models — bench/corpus/miwg/
   bench/corpus/PROVENANCE.md.
 
 --------------------------------------------------------------------------------
+Dependency acknowledgements
+--------------------------------------------------------------------------------
+
+This project uses bpmn-moddle, moddle, moddle-xml and diagram-js from bpmn.io
+(https://bpmn.io), Copyright (c) 2014-present Camunda Services GmbH, under the
+MIT License. It also uses bpmnlint (https://github.com/bpmn-io/bpmnlint),
+Copyright (c) 2018-present bpmn.io Contributors, under the MIT License.
+The benchmark uses bpmn-auto-layout; its package declares MIT but its missing
+licence file is recorded in docs/DECISIONS.md, ADR-005. It is not bundled with
+the published runtime. These acknowledgements do not replace the licence files
+that accompany dependencies installed from npm.
+
+--------------------------------------------------------------------------------
 Trademarks
 --------------------------------------------------------------------------------
 

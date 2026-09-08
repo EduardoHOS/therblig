@@ -2,6 +2,9 @@ export function linkFlow(flow, source, target) {
   flow.sourceRef = source;
   flow.targetRef = target;
 
+  // Message flows live on a collaboration; node adjacency lists contain sequence flows only.
+  if (flow.$type === 'bpmn:MessageFlow') return;
+
   if (source) {
     source.outgoing ??= [];
     if (!source.outgoing.includes(flow)) source.outgoing.push(flow);
@@ -34,6 +37,7 @@ export function retarget(flow, target) {
   }
 
   flow.targetRef = target;
+  if (flow.$type === 'bpmn:MessageFlow') return;
   target.incoming ??= [];
   if (!target.incoming.includes(flow)) target.incoming.push(flow);
 }

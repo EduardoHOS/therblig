@@ -15,3 +15,48 @@ test('only adjacency.mjs directly assigns BPMN graph references', async () => {
     assert.doesNotMatch(source, /\.(?:incoming|outgoing)\s*=(?!=)/, file);
   }
 });
+
+test('ops.mjs compiles intent to primitives without touching the parser or the tree', async () => {
+  const source = await readFile(new URL('ops.mjs', CORE_ROOT), 'utf8');
+  assert.doesNotMatch(source, /from '\.\/document\.mjs'/);
+  assert.doesNotMatch(source, /from 'bpmn-moddle'/);
+  assert.doesNotMatch(source, /moddle\.create/);
+});
+
+test('a node type is named in blocks/ and nowhere else in the core', async () => {
+  const { blocks } = await import('../../core/registry.mjs');
+  const types = blocks.flatMap((block) => [block.bpmn, ...(block.also ?? [])]);
+  const files = (await readdir(CORE_ROOT)).filter((file) => file.endsWith('.mjs'));
+
+  for (const file of files) {
+    const source = await readFile(new URL(file, CORE_ROOT), 'utf8');
+    for (const type of types) {
+      assert.doesNotMatch(source, new RegExp(`['"\`]${type}['"\`]`), `${file} names ${type}`);
+    }
+  }
+});
+
+test('the core never reaches the filesystem; backend/io is the only place that does', async () => {
+  // gates.mjs reads the vendored OMG schemas, which ship with the module and are not user input.
+  const VENDORED_SCHEMAS = new Set(['gates.mjs']);
+  const files = (await readdir(CORE_ROOT, { recursive: true })).filter((file) =>
+    file.endsWith('.mjs'),
+  );
+
+  for (const file of files) {
+    const source = await readFile(new URL(file, CORE_ROOT), 'utf8');
+    if (!VENDORED_SCHEMAS.has(file)) assert.doesNotMatch(source, /from 'node:fs/, file);
+    assert.doesNotMatch(source, /from '\.\.\/io\//, file);
+  }
+});
+
+test('only backend/mcp knows the protocol; the core and the CLI do not', async () => {
+  const roots = [CORE_ROOT, new URL('../../io/', import.meta.url), new URL('../../cli/', import.meta.url)];
+
+  for (const root of roots) {
+    for (const file of (await readdir(root, { recursive: true })).filter((f) => f.endsWith('.mjs'))) {
+      const source = await readFile(new URL(file, root), 'utf8');
+      assert.doesNotMatch(source, /@modelcontextprotocol/, file);
+    }
+  }
+});

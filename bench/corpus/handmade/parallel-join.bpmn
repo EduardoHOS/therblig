@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:treadle="https://treadle.dev/schema/1.0" id="Definitions_Parallel" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Claim" name="Claim" isExecutable="true">
+    <bpmn:startEvent id="Received" name="Claim received">
+      <bpmn:outgoing>To_Split</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:parallelGateway id="Split" name="Check both">
+      <bpmn:incoming>To_Split</bpmn:incoming>
+      <bpmn:outgoing>To_Cover</bpmn:outgoing>
+      <bpmn:outgoing>To_Fraud</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:serviceTask id="Cover" name="Check cover">
+      <bpmn:extensionElements>
+        <treadle:duration p50="PT4H" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>To_Cover</bpmn:incoming>
+      <bpmn:outgoing>Cover_Done</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Fraud" name="Check fraud">
+      <bpmn:extensionElements>
+        <treadle:duration p50="PT9H" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>To_Fraud</bpmn:incoming>
+      <bpmn:outgoing>Fraud_Done</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:parallelGateway id="Join" name="Both done">
+      <bpmn:incoming>Cover_Done</bpmn:incoming>
+      <bpmn:incoming>Fraud_Done</bpmn:incoming>
+      <bpmn:outgoing>To_Decide</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:exclusiveGateway id="Decide" name="Covered?" default="Reject_Path">
+      <bpmn:incoming>To_Decide</bpmn:incoming>
+      <bpmn:outgoing>Pay_Path</bpmn:outgoing>
+      <bpmn:outgoing>Reject_Path</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Pay" name="Pay claim">
+      <bpmn:extensionElements>
+        <treadle:duration p50="PT1H" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Pay_Path</bpmn:incoming>
+      <bpmn:outgoing>Paid</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="Reject" name="Send rejection">
+      <bpmn:extensionElements>
+        <treadle:duration p50="PT2H" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Reject_Path</bpmn:incoming>
+      <bpmn:outgoing>Rejected</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:endEvent id="Settled" name="Claim settled">
+      <bpmn:incoming>Paid</bpmn:incoming>
+      <bpmn:incoming>Rejected</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="To_Split" sourceRef="Received" targetRef="Split" />
+    <bpmn:sequenceFlow id="To_Cover" sourceRef="Split" targetRef="Cover" />
+    <bpmn:sequenceFlow id="To_Fraud" sourceRef="Split" targetRef="Fraud" />
+    <bpmn:sequenceFlow id="Cover_Done" sourceRef="Cover" targetRef="Join" />
+    <bpmn:sequenceFlow id="Fraud_Done" sourceRef="Fraud" targetRef="Join" />
+    <bpmn:sequenceFlow id="To_Decide" sourceRef="Join" targetRef="Decide" />
+    <bpmn:sequenceFlow id="Pay_Path" name="covered" sourceRef="Decide" targetRef="Pay">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=covered</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Reject_Path" name="not covered" sourceRef="Decide" targetRef="Reject" />
+    <bpmn:sequenceFlow id="Paid" sourceRef="Pay" targetRef="Settled" />
+    <bpmn:sequenceFlow id="Rejected" sourceRef="Reject" targetRef="Settled" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="D_1">
+    <bpmndi:BPMNPlane id="P_1" bpmnElement="Claim">
+      <bpmndi:BPMNShape id="S_Received" bpmnElement="Received"><dc:Bounds x="152" y="182" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Split" bpmnElement="Split"><dc:Bounds x="240" y="175" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Cover" bpmnElement="Cover"><dc:Bounds x="340" y="80" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Fraud" bpmnElement="Fraud"><dc:Bounds x="340" y="240" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Join" bpmnElement="Join"><dc:Bounds x="490" y="175" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Decide" bpmnElement="Decide"><dc:Bounds x="590" y="175" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Pay" bpmnElement="Pay"><dc:Bounds x="690" y="80" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Reject" bpmnElement="Reject"><dc:Bounds x="690" y="240" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_Settled" bpmnElement="Settled"><dc:Bounds x="852" y="182" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="E_To_Split" bpmnElement="To_Split"><di:waypoint x="188" y="200" /><di:waypoint x="240" y="200" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_To_Cover" bpmnElement="To_Cover"><di:waypoint x="290" y="200" /><di:waypoint x="315" y="200" /><di:waypoint x="315" y="120" /><di:waypoint x="340" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_To_Fraud" bpmnElement="To_Fraud"><di:waypoint x="290" y="200" /><di:waypoint x="315" y="200" /><di:waypoint x="315" y="280" /><di:waypoint x="340" y="280" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_Cover_Done" bpmnElement="Cover_Done"><di:waypoint x="440" y="120" /><di:waypoint x="465" y="120" /><di:waypoint x="465" y="200" /><di:waypoint x="490" y="200" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_Fraud_Done" bpmnElement="Fraud_Done"><di:waypoint x="440" y="280" /><di:waypoint x="465" y="280" /><di:waypoint x="465" y="200" /><di:waypoint x="490" y="200" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_To_Decide" bpmnElement="To_Decide"><di:waypoint x="540" y="200" /><di:waypoint x="590" y="200" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_Pay_Path" bpmnElement="Pay_Path"><di:waypoint x="640" y="200" /><di:waypoint x="665" y="200" /><di:waypoint x="665" y="120" /><di:waypoint x="690" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_Reject_Path" bpmnElement="Reject_Path"><di:waypoint x="640" y="200" /><di:waypoint x="665" y="200" /><di:waypoint x="665" y="280" /><di:waypoint x="690" y="280" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_Paid" bpmnElement="Paid"><di:waypoint x="790" y="120" /><di:waypoint x="820" y="120" /><di:waypoint x="820" y="200" /><di:waypoint x="852" y="200" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="E_Rejected" bpmnElement="Rejected"><di:waypoint x="790" y="280" /><di:waypoint x="820" y="280" /><di:waypoint x="820" y="200" /><di:waypoint x="852" y="200" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

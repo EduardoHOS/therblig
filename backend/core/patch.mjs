@@ -1,9 +1,55 @@
-import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
-import { index, walk } from './document.mjs';
-import { pruneDI } from './placement.mjs';
-import { BPMN_EVENT_BY_KIND, BPMN_TYPE_BY_NODE } from './vocabulary.mjs';
+/**
+ * The four primitives emitted by intent operations. Their union stays closed; the file API
+ * also accepts the separately typed move and message verbs.
+ *
+ * @typedef {AddOperation | SetOperation | DelOperation | ConnectOperation} Operation
+ *
+ * @typedef {object} AddOperation
+ * @property {'add'} op
+ * @property {string} type                    an IR word from the block registry
+ * @property {string} in                      the container to add into
+ * @property {string} [id]                    minted when absent or already taken
+ * @property {string} [name]
+ * @property {string} [event]                 event blocks only
+ * @property {{duration?: string, cycle?: string, date?: string}} [timer]
+ * @property {string} [on]                    boundary events only: the host
+ * @property {boolean} [interrupting]
+ * @property {string} [after]                 splice after this node
+ * @property {[string, string]} [between]     splice between these two, retargeting the flow
+ *
+ * @typedef {object} SetOperation
+ * @property {'set'} op
+ * @property {string} id
+ * @property {Record<string, unknown>} [patch]  `if`, `default`, `to` and `lane` are structural
+ *
+ * @typedef {object} DelOperation
+ * @property {'del'} op
+ * @property {string} id
+ *
+ * @typedef {object} ConnectOperation
+ * @property {'connect'} op
+ * @property {string} from
+ * @property {string} to
+ * @property {string} [id]
+ * @property {string} [name]
+ * @property {string} [if]
+ * @property {boolean} [remove]
+ *
+ * @typedef {object} PatchResult
+ * @property {string[]} changed
+ * @property {string[]} created
+ * @property {string[]} prunedDI
+ *
+ * Legacy file API verbs coexist with the four primitives emitted by intent operations.
+ * @typedef {{op: 'move', id: string, lane: string} | {op: 'message', from: string, to: string, id?: string, name?: string}} LegacyOperation
+ */
 
-function mintId(byId, base) {
+import { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
+import { contained, containerOf, index, walk } from './document.mjs';
+import { block } from './registry.mjs';
+import { pruneDI } from './placement.mjs';
+
+export function mintId(byId, base) {
   const slug =
     String(base).replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'Element';
   let id = slug;
@@ -41,8 +87,7 @@ function insertionFor(byId, container, operation) {
 }
 
 function addNode({ moddle, byId, changed, created }, operation) {
-  const type = BPMN_TYPE_BY_NODE.get(operation.type);
-  if (!type) throw new Error(`Unknown node type "${operation.type}"`);
+  const definition = block(operation.type);
 
   const container = byId.get(operation.in);
   if (!container) throw new Error(`Container "${operation.in}" not found`);
@@ -52,25 +97,11 @@ function addNode({ moddle, byId, changed, created }, operation) {
     operation.id && !byId.has(operation.id)
       ? operation.id
       : mintId(byId, operation.id || operation.name || operation.type);
-  const element = moddle.create(type, {
+  const element = moddle.create(definition.bpmn, {
     id,
     ...(operation.name ? { name: operation.name } : {}),
   });
-
-  if (operation.event) {
-    const definitionType = BPMN_EVENT_BY_KIND.get(operation.event);
-    if (!definitionType) throw new Error(`Unknown event kind "${operation.event}"`);
-    const definition = moddle.create(definitionType, {});
-    definition.$parent = element;
-    element.eventDefinitions = [definition];
-  }
-
-  if (operation.on) {
-    const host = byId.get(operation.on);
-    if (!host) throw new Error(`Boundary host "${operation.on}" not found`);
-    element.attachedToRef = host;
-    if (operation.interrupting === false) element.cancelActivity = false;
-  }
+  definition.build?.(element, operation, { moddle, byId });
 
   element.$parent = container;
   flowNodesOf(container).push(element);
@@ -109,6 +140,8 @@ const SETTABLE = new Set([
   'name',
   'if',
   'default',
+  'lane',
+  'to',
   'documentation',
   'isExecutable',
   'isForCompensation',
@@ -136,7 +169,26 @@ const FORBIDDEN = new Set([
   '$parent',
 ]);
 
-function setElement({ moddle, byId, changed }, operation) {
+// Lane membership lives on the lane, not on the node, so moving a node means editing two lanes.
+function setLane({ definitions, byId, changed }, element, laneId) {
+  for (const lane of walk(definitions)) {
+    if (lane.$type !== 'bpmn:Lane' || !lane.flowNodeRef) continue;
+    const at = lane.flowNodeRef.indexOf(element);
+    if (at < 0) continue;
+    lane.flowNodeRef.splice(at, 1);
+    changed.add(lane.id);
+  }
+  if (laneId == null) return;
+
+  const lane = byId.get(laneId);
+  if (lane?.$type !== 'bpmn:Lane') throw new Error(`Lane "${laneId}" not found`);
+  lane.flowNodeRef ??= [];
+  lane.flowNodeRef.push(element);
+  changed.add(lane.id);
+}
+
+function setElement(context, operation) {
+  const { moddle, byId, changed } = context;
   const element = byId.get(operation.id);
   if (!element) throw new Error(`Element "${operation.id}" not found`);
 
@@ -149,6 +201,13 @@ function setElement({ moddle, byId, changed }, operation) {
       const target = byId.get(value);
       if (value != null && !target) throw new Error(`Default flow "${value}" not found`);
       element.default = target;
+    } else if (key === 'lane') {
+      setLane(context, element, value);
+    } else if (key === 'to') {
+      if (!element.$type.endsWith('Flow')) throw new Error(`Element "${operation.id}" is not a flow`);
+      const target = byId.get(value);
+      if (!target) throw new Error(`Target "${value}" not found`);
+      retarget(element, target);
     } else if (key === 'documentation') {
       // bpmn:Documentation is a typed child collection, not a string attribute.
       if (value == null || value === '') {
@@ -236,10 +295,9 @@ function messageElements({ moddle, definitions, byId, changed, created }, operat
       : mintId(byId, `Message_${operation.from}_${operation.to}`);
   const flow = moddle.create('bpmn:MessageFlow', {
     id,
-    sourceRef: source,
-    targetRef: target,
     ...(operation.name ? { name: operation.name } : {}),
   });
+  linkFlow(flow, source, target);
   flow.$parent = collaboration;
   collaboration.messageFlows ??= [];
   collaboration.messageFlows.push(flow);
@@ -268,16 +326,25 @@ function deleteElement({ definitions, byId, changed }, operation) {
 
   for (const other of elements) {
     if (
-      other.$type === 'bpmn:SequenceFlow' &&
+      /^bpmn:(SequenceFlow|MessageFlow)$/.test(other.$type) &&
       (removed.has(other.sourceRef) || removed.has(other.targetRef))
     ) {
       removed.add(other);
     }
   }
 
+  // Whatever a removed element contains goes with it — a task's inputOutputSpecification, its data
+  // associations. Each one needs to be reported as changed and to have its DI dropped, or it
+  // reads as collateral damage and leaves an edge pointing at nothing.
+  const nested = [];
   for (const target of removed) {
-    if (target.$type === 'bpmn:SequenceFlow') unlinkFlow(target);
-    const siblings = target.$parent?.flowElements;
+    for (const child of contained(target)) nested.push(child);
+  }
+  for (const child of nested) removed.add(child);
+
+  for (const target of removed) {
+    if (/^bpmn:(SequenceFlow|MessageFlow)$/.test(target.$type)) unlinkFlow(target);
+    const siblings = target.$parent?.flowElements ?? target.$parent?.messageFlows;
     if (siblings) {
       const position = siblings.indexOf(target);
       if (position >= 0) siblings.splice(position, 1);
@@ -293,38 +360,35 @@ function deleteElement({ definitions, byId, changed }, operation) {
   if (container) changed.add(container.id);
 }
 
-function connectElements({ moddle, definitions, byId, changed, created }, operation) {
+function connectElements({ moddle, definitions, byId, changed, created, inferMessageFlows }, operation) {
   const source = byId.get(operation.from);
   const target = byId.get(operation.to);
   if (!source) throw new Error(`Source "${operation.from}" not found`);
   if (!target) throw new Error(`Target "${operation.to}" not found`);
 
+  // Intent plans infer message flows between pools. The file API preserves explicit sequence
+  // connections so its oracle can reject a cross-pool sequence flow as requested.
+  const crosses = inferMessageFlows && containerOf(source) !== containerOf(target);
+  const collaboration = crosses ? collaborationFor(definitions, source, target) : null;
+
   if (operation.remove) {
+    const wanted = crosses ? 'bpmn:MessageFlow' : 'bpmn:SequenceFlow';
     for (const flow of walk(definitions)) {
-      if (
-        flow.$type !== 'bpmn:SequenceFlow' ||
-        flow.sourceRef !== source ||
-        flow.targetRef !== target
-      ) {
-        continue;
-      }
+      if (flow.$type !== wanted || flow.sourceRef !== source || flow.targetRef !== target) continue;
       unlinkFlow(flow);
-      const siblings = flow.$parent?.flowElements;
-      if (siblings) {
-        const position = siblings.indexOf(flow);
-        if (position >= 0) siblings.splice(position, 1);
-      }
+      const siblings = flow.$parent?.flowElements ?? flow.$parent?.messageFlows;
+      const position = siblings?.indexOf(flow) ?? -1;
+      if (position >= 0) siblings.splice(position, 1);
       changed.add(flow.id);
     }
     return;
   }
 
-  const container = source.$parent;
   const id =
     operation.id && !byId.has(operation.id)
       ? operation.id
-      : mintId(byId, `Flow_${operation.from}_${operation.to}`);
-  const flow = moddle.create('bpmn:SequenceFlow', {
+      : mintId(byId, `${crosses ? 'Message' : 'Flow'}_${operation.from}_${operation.to}`);
+  const flow = moddle.create(crosses ? 'bpmn:MessageFlow' : 'bpmn:SequenceFlow', {
     id,
     ...(operation.name ? { name: operation.name } : {}),
   });
@@ -335,44 +399,75 @@ function connectElements({ moddle, definitions, byId, changed, created }, operat
     flow.conditionExpression.$parent = flow;
   }
 
+  const container = collaboration ?? source.$parent;
   flow.$parent = container;
-  flowNodesOf(container).push(flow);
+  if (collaboration) {
+    collaboration.messageFlows ??= [];
+    collaboration.messageFlows.push(flow);
+  } else {
+    flowNodesOf(container).push(flow);
+  }
   byId.set(id, flow);
   changed.add(id);
   created.push(id);
 }
 
-export function applyPatch({ moddle, definitions }, operations) {
+function collaborationFor(definitions, source, target) {
+  const scopes = new Set([containerOf(source), containerOf(target)]);
+  for (const element of walk(definitions)) {
+    if (element.$type !== 'bpmn:Collaboration') continue;
+    // A black-box pool has no processRef, so it can hold no node to connect: it maps to
+    // undefined and never matches a container.
+    const pooled = new Set(element.participants.map((participant) => participant.processRef?.id));
+    if ([...scopes].every((scope) => pooled.has(scope))) return element;
+  }
+  throw new Error(`"${source.id}" and "${target.id}" are not pools of one collaboration`);
+}
+
+/**
+ * @param {{moddle: unknown, definitions: unknown}} document
+ * @param {(Operation | LegacyOperation)[]} operations
+ * @param {{inferMessageFlows?: boolean}} [options] false preserves explicit sequence connections for oracle validation
+ * @returns {PatchResult}
+ */
+export function applyPatch({ moddle, definitions }, operations, { inferMessageFlows = true } = {}) {
   const context = {
     moddle,
     definitions,
     byId: index(definitions),
     changed: new Set(),
     created: [],
+    inferMessageFlows,
   };
 
-  for (const operation of operations) {
-    switch (operation.op) {
-      case 'add':
-        addNode(context, operation);
-        break;
-      case 'set':
-        setElement(context, operation);
-        break;
-      case 'del':
-        deleteElement(context, operation);
-        break;
-      case 'connect':
-        connectElements(context, operation);
-        break;
-      case 'move':
-        moveElement(context, operation);
-        break;
-      case 'message':
-        messageElements(context, operation);
-        break;
-      default:
-        throw new Error(`Unknown operation "${operation.op}"`);
+  for (const [at, operation] of operations.entries()) {
+    try {
+      switch (operation.op) {
+        case 'add':
+          addNode(context, operation);
+          break;
+        case 'set':
+          setElement(context, operation);
+          break;
+        case 'del':
+          deleteElement(context, operation);
+          break;
+        case 'connect':
+          connectElements(context, operation);
+          break;
+        case 'move':
+          moveElement(context, operation);
+          break;
+        case 'message':
+          messageElements(context, operation);
+          break;
+        default:
+          throw new Error(`Unknown operation "${operation.op}"`);
+      }
+    } catch (error) {
+      // Which operation failed, so a caller can name it without re-running the plan.
+      error.at ??= at;
+      throw error;
     }
   }
 

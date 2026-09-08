@@ -1,5 +1,99 @@
+/**
+ * The coordinate-free read projection an agent reasons over. Empty collections are dropped, so
+ * every key is optional and every reader needs a fallback.
+ *
+ * @typedef {object} Projection
+ * @property {IrProcess[]} [processes]
+ * @property {IrNode[]} [nodes]
+ * @property {IrFlow[]} [flows]
+ * @property {IrLane[]} [lanes]
+ * @property {IrPool[]} [pools]
+ * @property {IrMessageFlow[]} [messageFlows]
+ * @property {IrData[]} [data]
+ * @property {IrNote[]} [notes]
+ * @property {IrGroup[]} [groups]
+ * @property {IrLink[]} [links]
+ *
+ * @typedef {object} IrProcess
+ * @property {string} id
+ * @property {string | null} name
+ * @property {boolean | null} executable
+ *
+ * @typedef {object} IrNode
+ * @property {string} id                      the original XML id, carried verbatim
+ * @property {string} type                    an IR word from the block registry
+ * @property {string} [name]
+ * @property {string} [in]                    the container this node lives in
+ * @property {string} [lane]
+ * @property {string} [on]                    boundary events only: the host activity
+ * @property {string | string[]} [event]      event blocks only: the kinds it carries
+ * @property {string} [default]               gateways and activities only
+ * @property {false} [interrupting]           boundary events only, when non-interrupting
+ * @property {true} [eventSubprocess]
+ * @property {string[]} [ext]                 vendor extension element types, unmodified
+ *
+ * @typedef {object} IrFlow
+ * @property {string} id
+ * @property {string} from
+ * @property {string} to
+ * @property {string} [name]
+ * @property {string} [if]                    the condition expression body, as written
+ *
+ * @typedef {object} IrLane
+ * @property {string} id
+ * @property {string | null} name
+ * @property {string | null} in
+ *
+ * @typedef {object} IrPool
+ * @property {string} id
+ * @property {string | null} name
+ * @property {string | null} process
+ *
+ * @typedef {object} IrMessageFlow
+ * @property {string} id
+ * @property {string | null} name
+ * @property {string} [from]
+ * @property {string} [to]
+ *
+ * @typedef {object} IrData          what the process reads and writes, never what it does
+ * @property {string} id
+ * @property {'object' | 'store' | 'input' | 'output'} kind
+ * @property {string | null} name
+ *
+ * @typedef {object} IrNote          a text annotation, as written
+ * @property {string} id
+ * @property {string | null} text
+ *
+ * @typedef {object} IrGroup
+ * @property {string} id
+ * @property {string | null} name
+ *
+ * @typedef {object} IrLink          an association: a dotted line to an artifact, not a route
+ * @property {string} id
+ * @property {'data' | 'note'} kind
+ * @property {string} [from]
+ * @property {string} [to]
+ */
+
 import { containerOf, walk } from './document.mjs';
-import { EVENT_KIND_BY_BPMN, NODE_TYPE_BY_BPMN } from './vocabulary.mjs';
+import { byBpmn } from './registry.mjs';
+
+/**
+ * What a diagram carries besides its flow. None of these is a block: they are read and drawn, never
+ * added — the closed vocabulary in `registry.mjs` is what `add` accepts, and putting a data object
+ * in it would make `ops` able to mint one without knowing what it should reference.
+ */
+const DATA_KIND = new Map([
+  ['bpmn:DataObjectReference', 'object'],
+  ['bpmn:DataStoreReference', 'store'],
+  ['bpmn:DataInput', 'input'],
+  ['bpmn:DataOutput', 'output'],
+]);
+
+// An association's ends are optional and a data association's source is a list, because BPMN lets
+// several inputs feed one parameter. The drawing needs neither — the DI carries the waypoints — so
+// only the first end is projected, for a reader that wants to know what touches what.
+const first = (value) => (Array.isArray(value) ? value[0]?.id : value?.id);
 
 function laneIndex(definitions) {
   const lanes = new Map();
@@ -12,6 +106,7 @@ function laneIndex(definitions) {
   return lanes;
 }
 
+/** @param {unknown} definitions @param {{scope?: string | null}} [options] @returns {Projection} */
 export function project(definitions, { scope = null } = {}) {
   const lanes = laneIndex(definitions);
   const projection = {
@@ -21,6 +116,10 @@ export function project(definitions, { scope = null } = {}) {
     lanes: [],
     pools: [],
     messageFlows: [],
+    data: [],
+    notes: [],
+    groups: [],
+    links: [],
   };
 
   for (const element of walk(definitions)) {
@@ -46,28 +145,40 @@ export function project(definitions, { scope = null } = {}) {
         from: element.sourceRef?.id,
         to: element.targetRef?.id,
       });
+    } else if (DATA_KIND.has(type)) {
+      projection.data.push({ id: element.id, kind: DATA_KIND.get(type), name: element.name ?? null });
+    } else if (type === 'bpmn:TextAnnotation') {
+      projection.notes.push({ id: element.id, text: element.text ?? null });
+    } else if (type === 'bpmn:Group') {
+      projection.groups.push({ id: element.id, name: element.categoryValueRef?.value ?? null });
+    } else if (type === 'bpmn:Association') {
+      projection.links.push({
+        id: element.id,
+        kind: 'note',
+        from: first(element.sourceRef),
+        to: first(element.targetRef),
+      });
+    } else if (type === 'bpmn:DataInputAssociation' || type === 'bpmn:DataOutputAssociation') {
+      projection.links.push({
+        id: element.id,
+        kind: 'data',
+        from: first(element.sourceRef),
+        to: first(element.targetRef),
+      });
     } else if (type === 'bpmn:SequenceFlow') {
       const flow = { id: element.id, from: element.sourceRef?.id, to: element.targetRef?.id };
       if (element.name) flow.name = element.name;
       if (element.conditionExpression?.body) flow.if = element.conditionExpression.body;
       projection.flows.push(flow);
-    } else if (NODE_TYPE_BY_BPMN.has(type)) {
-      const node = { id: element.id, type: NODE_TYPE_BY_BPMN.get(type) };
+    } else if (byBpmn.has(type)) {
+      const definition = byBpmn.get(type);
+      const node = { id: element.id, type: definition.ir };
       if (element.name) node.name = element.name;
       const container = containerOf(element);
       if (container) node.in = container;
       if (lanes.has(element.id)) node.lane = lanes.get(element.id);
-      if (element.attachedToRef?.id) node.on = element.attachedToRef.id;
 
-      const eventDefinitions = (element.eventDefinitions || [])
-        .map((definition) => EVENT_KIND_BY_BPMN.get(definition.$type) || definition.$type)
-        .filter(Boolean);
-      if (eventDefinitions.length) {
-        node.event = eventDefinitions.length === 1 ? eventDefinitions[0] : eventDefinitions;
-      }
-      if (element.default?.id) node.default = element.default.id;
-      if (element.cancelActivity === false) node.interrupting = false;
-      if (element.triggeredByEvent) node.eventSubprocess = true;
+      Object.assign(node, definition.project?.(element));
       if (element.extensionElements?.values?.length) {
         node.ext = element.extensionElements.values.map((value) => value.$type);
       }

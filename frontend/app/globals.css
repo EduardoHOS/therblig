@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+/*
+ * One palette, shared with the SVG the core draws, so a diagram looks the same in the CLI's file
+ * and in this page. `@theme` is what Tailwind reads to generate `bg-paper`, `text-ink-3` and the
+ * rest, and it holds the light values because light is what the Studio opens in — a diagram is
+ * read the way it is printed, and the reader chooses otherwise if they want to. The dark theme
+ * redefines the same custom properties, which every generated utility already reads through
+ * `var()`. It is stamped on the root element by the reader's choice, never by their operating
+ * system: a document that changes colour on its own is a surprise, not a preference.
+ */
+@theme {
+  --color-paper: #eef1f0;
+  --color-surface: #fdfefd;
+  --color-sunk: #e3e8e6;
+  --color-ink: #101618;
+  --color-ink-2: #475355;
+  --color-ink-3: #7a8887;
+  --color-rule: #d5dcda;
+  --color-plot: #0e6b60;
+  --color-ok: #2c7449;
+  --color-warn: #7e6417;
+  --color-bad: #a63a22;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-paper: #0b0e10;
+  --color-surface: #12181a;
+  --color-sunk: #1c2426;
+  --color-ink: #e5edea;
+  --color-ink-2: #a0aeab;
+  --color-ink-3: #778785;
+  --color-rule: #2b3538;
+  --color-plot: #4fcfba;
+  --color-ok: #5fbe86;
+  --color-warn: #d3b155;
+  --color-bad: #e5825f;
+}
+
+/* The four structural colours the drawn SVG reads. Its own fallbacks are the light palette, so a
+   `.svg` the CLI wrote and someone opened on its own still looks right. */
+:root {
+  --treadle-ground: var(--color-paper);
+  --treadle-surface: var(--color-surface);
+  --treadle-ink: var(--color-ink);
+  --treadle-line: var(--color-ink-2);
+  color-scheme: light;
+}
+
+html, body { height: 100%; }
+body { background: var(--color-paper); color: var(--color-ink); }
+
+/*
+ * The drawn SVG is server-rendered markup, so its interactive states are CSS on the ids it already
+ * carries. A stroke set here beats the presentation attribute the renderer wrote, which is how a
+ * selection reads the same in either theme instead of a filter that only works on one ground.
+ */
+.canvas-sheet svg { display: block; }
+.canvas-sheet [data-id] { cursor: pointer; }
+.canvas-sheet [data-id]:hover { opacity: 0.65; }
+.canvas-sheet .is-selected {
+  stroke: var(--color-plot);
+  stroke-width: 2.5;
+  stroke-dasharray: 5 3;
+}
+
+/* Selecting an element marks its outline and its name. Text takes the mark as a fill: a stroked
+   label at 10px is a smear. */
+.canvas-sheet text.is-selected {
+  stroke: none;
+  fill: var(--color-plot);
+  font-weight: 600;
+}
+
+/* A canvas is a surface you work on, not a page you read: a faint grid says the diagram sits in
+   space that pans and zooms, and gives the eye something to measure the movement against. */
+.canvas-ground {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--color-rule) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.zoom-key {
+  padding-inline: 0.625rem;
+  font-size: 13px;
+  line-height: 1.85rem;
+}
+.zoom-key:hover {
+  background: var(--color-sunk);
+  color: var(--color-ink);
+}
+
+kbd {
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: var(--color-sunk);
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-plot) 24%, transparent);
+}
+
+/* A focus ring the whole product shares, rather than the browser's, which changes per platform. */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-plot);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The library has its own layout; the diagram surface keeps its existing canvas palette. */
+.library-home { background: var(--color-paper); }
+.library-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--color-rule);
+  background: var(--color-surface);
+}
+.library-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: calc(100dvh - 64px); }
+.library-sidebar { display: flex; flex-direction: column; padding: 28px 16px 24px; border-right: 1px solid var(--color-rule); }
+.library-folder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--color-ink-2);
+  cursor: pointer;
+}
+.library-folder:hover { background: var(--color-sunk); }
+.library-folder[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--color-plot) 9%, var(--color-surface));
+  border-color: color-mix(in oklab, var(--color-plot) 14%, transparent);
+  color: var(--color-plot);
+  font-weight: 600;
+}
+.library-sidebar-note { margin-top: auto; padding: 48px 12px 0; font-size: 11px; color: var(--color-ink-2); }
+.library-main { width: 100%; max-width: 1380px; min-width: 0; margin-inline: auto; padding: 42px clamp(24px, 4vw, 64px) 40px; }
+.library-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--color-plot);
+  color: var(--color-surface);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+:root[data-theme='dark'] .library-primary { color: var(--color-paper); }
+.library-primary:hover:not(:disabled) { background: color-mix(in oklab, var(--color-plot) 85%, var(--color-ink)); }
+.library-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.library-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-block: 30px; padding-block: 22px; border-block: 1px solid var(--color-rule); }
+.library-metrics > div { padding-left: 26px; border-left: 1px solid var(--color-rule); }
+.library-metrics > div:first-child { padding-left: 0; border-left: 0; }
+.library-metrics dt { margin-bottom: 7px; color: var(--color-ink-2); font-size: 12px; }
+.library-metrics dd { font-size: 25px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.library-metrics dd span { margin-left: 12px; color: var(--color-ink-2); font-size: 11px; font-weight: 400; letter-spacing: 0; }
+.library-collection { overflow: hidden; border: 1px solid var(--color-rule); border-radius: 12px; background: var(--color-surface); }
+.library-search, .library-select { min-height: 40px; border: 1px solid var(--color-rule); border-radius: 6px; background: var(--color-surface); color: var(--color-ink); font-size: 12px; }
+.library-search { width: 100%; padding: 9px 12px 9px 38px; }
+.library-search::placeholder { color: var(--color-ink-2); }
+.library-select { max-width: 100%; padding: 8px 10px; }
+.library-home :where(input, select, a, button):focus-visible { outline: 2px solid var(--color-plot); outline-offset: 3px; }
+.library-table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
+.library-table th { padding: 10px 12px; border-block: 1px solid var(--color-rule); background: color-mix(in oklab, var(--color-paper) 60%, var(--color-surface)); color: var(--color-ink-2); font-size: 10px; font-weight: 500; }
+.library-table th:first-child { width: 56%; padding-left: 22px; }
+.library-table th:last-child { width: 44px; }
+.library-table td { padding: 0 12px; border-bottom: 1px solid var(--color-rule); color: var(--color-ink-2); font-size: 12px; }
+.library-table td:first-child { padding: 0; }
+.library-table tr:last-child td { border-bottom: 0; }
+.library-table tbody tr { position: relative; }
+.library-table tbody tr:hover, .library-table tbody tr:focus-within { background: color-mix(in oklab, var(--color-plot) 4%, var(--color-surface)); }
+.library-file { display: flex; align-items: center; gap: 12px; padding: 17px 20px; }
+.library-file::after { content: ''; position: absolute; inset: 0; }
+.library-file:hover .font-medium { color: var(--color-plot); }
+.library-file-icon { display: grid; place-items: center; height: 36px; width: 36px; flex-shrink: 0; border: 1px solid var(--color-rule); border-radius: 8px; background: var(--color-surface); color: var(--color-plot); }
+@media (min-width: 1600px) {
+  .library-layout { grid-template-columns: 260px minmax(0, 1fr); }
+}
+@media (max-width: 1100px) {
+  .library-metrics dd span { display: block; margin: 6px 0 0; }
+}
+@media (max-width: 760px) {
+  .library-header { height: 58px; padding-inline: 20px; }
+  .library-layout { display: block; }
+  .library-sidebar { padding: 16px 20px; border-right: 0; border-bottom: 1px solid var(--color-rule); }
+  .library-sidebar > div:first-child { margin-bottom: 12px; }
+  .library-sidebar > p { margin: 16px 0 6px; padding-inline: 0; }
+  .library-folders { display: flex; gap: 6px; overflow-x: auto; padding: 3px; margin: -3px; }
+  .library-folders .library-folder { width: auto; max-width: 260px; flex-shrink: 0; border-color: var(--color-rule); }
+  .library-sidebar-note { display: none; }
+  .library-main { padding: 28px 20px; }
+  .library-metrics { margin-block: 24px; padding-block: 18px; }
+  .library-metrics > div { padding-left: 16px; }
+  .library-table .library-pools, .library-table .library-size { display: none; }
+  .library-table th:first-child { width: auto; }
+  .library-table th:nth-child(2) { width: 70px; }
+  .library-table th:last-child { width: 32px; }
+  .library-table td:last-child { padding-left: 0; }
+  .library-file { gap: 10px; padding: 16px 12px; }
+  .library-file-icon { height: 30px; width: 30px; }
+}

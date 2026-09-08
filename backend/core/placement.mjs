@@ -1,34 +1,9 @@
 import { containerOf, index, walk } from './document.mjs';
+import { byBpmn } from './registry.mjs';
 
-const SIZE = {
-  'bpmn:StartEvent': [36, 36],
-  'bpmn:EndEvent': [36, 36],
-  'bpmn:IntermediateCatchEvent': [36, 36],
-  'bpmn:IntermediateThrowEvent': [36, 36],
-  'bpmn:BoundaryEvent': [36, 36],
-  'bpmn:ExclusiveGateway': [50, 50],
-  'bpmn:ParallelGateway': [50, 50],
-  'bpmn:InclusiveGateway': [50, 50],
-  'bpmn:EventBasedGateway': [50, 50],
-  'bpmn:ComplexGateway': [50, 50],
-  'bpmn:SubProcess': [350, 200],
-  'bpmn:Transaction': [350, 200],
-};
-const DEFAULT_SIZE = [100, 80];
 const GAP = 50;
 
-// Placement positions a flow node beside its neighbours. It cannot meaningfully position
-// a pool or a lane, whose geometry derives from what they hold, and it must never be
-// handed a process: `del` reports the containing process in `changed`, so the obvious
-// placeNew([...changed, ...created]) once minted a BPMNShape for the bpmn:Process itself
-// and every gate passed it. See docs/FINDINGS.md F12.
-const PLACEABLE =
-  /^bpmn:(Start|End|Boundary|IntermediateCatch|IntermediateThrow)Event$|^bpmn:(User|Service|Script|Manual|Send|Receive|BusinessRule)?Task$|^bpmn:(Sub|AdHocSub)Process$|^bpmn:Transaction$|^bpmn:CallActivity$|^bpmn:(Exclusive|Parallel|Inclusive|EventBased|Complex)Gateway$/;
 const CONTAINER_SHAPE = /^bpmn:(Participant|Lane)$/;
-
-function sizeOf(element) {
-  return SIZE[element.$type] ?? DEFAULT_SIZE;
-}
 
 function diIndex(definitions) {
   const planes = [];
@@ -221,9 +196,11 @@ function placeNodes(context, ids) {
   for (const id of ids) {
     const element = context.byId.get(id);
     if (!element || context.byElement.has(id)) continue;
-    if (!PLACEABLE.test(element.$type)) continue;
+    // The registry owns node geometry. Pools and lanes require a different layout operation.
+    const box = byBpmn.get(element.$type)?.shape;
+    if (!box) continue;
 
-    const [width, height] = sizeOf(element);
+    const { w: width, h: height } = box;
     const position = nodePosition(element, context, width, height);
     if (!position) continue;
     const plane = planeFor(context.planes, context.byElement, element);

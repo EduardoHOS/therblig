@@ -12,7 +12,7 @@ import {
   walk,
 } from '../../core/index.mjs';
 import { scoreAll } from '../../../bench/scorer/gates.mjs';
-import { readFixture } from '../support/fixture.mjs';
+import { normalizedFixture, readFixture } from '../support/fixture.mjs';
 
 const CASES = [
   ['handmade/zeebe-roundtrip.bpmn', 'Payment', 'Charge', 'Review'],
@@ -207,4 +207,18 @@ test('placement routes a vertical edge through orthogonal waypoints', async () =
       element.$type === 'bpmndi:BPMNEdge' && element.bpmnElement?.id === 'VerticalFlow',
   );
   assert.equal(edge.waypoint.length, 4);
+});
+
+test('placeNew leaves an element it has no block for unplaced, and diCoverage reports it', async () => {
+  const { document } = await normalizedFixture();
+  const process = index(document.definitions).get('Payment');
+  const lane = document.moddle.create('bpmn:Lane', { id: 'Lane_1' });
+  lane.$parent = process;
+  process.laneSets = [document.moddle.create('bpmn:LaneSet', { id: 'LaneSet_1', lanes: [lane] })];
+
+  assert.deepEqual(placeNew(document, ['Lane_1']).placed, []);
+  assert.deepEqual(
+    diCoverage(document.definitions).missing,
+    [{ id: 'Lane_1', type: 'bpmn:Lane' }],
+  );
 });

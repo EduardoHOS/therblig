@@ -3,11 +3,12 @@
 **Read, explain, lint and edit the `.bpmn` files already in your repo — from any AI agent,
 without wrecking the diagram.**
 
-An open-source MCP server, CLI and library for BPMN 2.0. Engine-neutral, file-native,
-no account, no server, works offline. Apache-2.0.
+An open-source MCP server, CLI, library and local Studio for BPMN 2.0. Engine-neutral, file-native,
+no account, no remote service, works offline. Apache-2.0.
 
 > Status: **pre-release, not yet published to npm.** The library, CLI and MCP server
-> work; writes are guarded and tested. See [docs/FINDINGS.md](docs/FINDINGS.md) for what
+> exist alongside the local Studio. The three-arm agent bake-off has not been completed.
+> See [docs/FINDINGS.md](docs/FINDINGS.md) for what
 > has been measured — including what was measured *wrongly* and corrected — and
 > [docs/DECISIONS.md](docs/DECISIONS.md) for what was decided on the strength of it.
 
@@ -15,10 +16,7 @@ no account, no server, works offline. Apache-2.0.
 
 ## Why
 
-Analysts inherit BPMN models far more often than they draw them. Every AI tool in this
-space generates new diagrams: Camunda's Copilot "officially supports only modifying
-diagrams that were created by the BPMN Copilot itself", and every open-source BPMN MCP
-server is a text-to-diagram generator abandoned within days of creation.
+Analysts inherit BPMN models and need to inspect, change and review the files they already have.
 
 Meanwhile, editing a real `.bpmn` file with ordinary text tools breaks in structural ways:
 
@@ -29,9 +27,14 @@ Meanwhile, editing a real `.bpmn` file with ordinary text tools breaks in struct
 - regenerating the file moves every shape, producing a diff nobody will review
 
 therblig operates on the parsed document instead: patches apply to the object tree, and
-export rewrites only what changed.
+export serializes the updated tree. The first edit normalizes formatting and can remove
+XML comments, DOCTYPE declarations and processing instructions; see ADR-004. Subsequent
+edit diffs are measured separately from that one-time normalization.
 
-## What is measured, not claimed
+## Recorded evidence
+
+These are historical measurements from the revisions recorded in [docs/FINDINGS.md](docs/FINDINGS.md),
+not results from the merged checkout. Corpus totals depend on the run.
 
 | | |
 |---|---|
@@ -41,14 +44,19 @@ export rewrites only what changed.
 | Corpus XSD-valid | **23/23** |
 | `bpmn-auto-layout@2.0.0-alpha.2` full-file layout | **fails on 9 of the 21 MIWG models** — 8 silent, 1 crash |
 
-That last row is why this is an editing tool and not a diagram generator.
+The Studio branch also recorded seven reference-error kinds missed by the existing
+validators, a fork placement probe over 18 file/op combinations, and simulation results
+for 21 MIWG files (16 ran, five refused by name). Those findings remain under **Studio
+F10–F17** in the same document. The rigid-shape probe alone cannot prove label preservation.
+
+The full-layout failure is why edits preserve existing DI and place only new elements.
 
 **And one that was measured wrongly.** F9 claimed incremental placement preserves layout,
 scored by a gate testing that everything which moved moved by the same delta. The gate
 read shape bounds with a regex that cannot reach a `BPMNLabel`, and the placement code
 moved shape bounds and nothing else — so on two of the four files it certified,
 **12 labels were left behind while their shapes slid out from under them, and the gate
-reported success.** Corrected in [F11](docs/FINDINGS.md), and now 0 of 12 — labels are
+reported success.** The corrected run in [F11](docs/FINDINGS.md) measured 0 of 12 — labels were
 translated with their shapes, and the make-room shift is scoped to the pool being edited
 rather than the whole document. A probe holds the property in the test suite; the gate
 that missed it was deliberately left alone, because it scores the benchmark and is not
@@ -57,32 +65,49 @@ what guards a write.
 We publish the corrections because a preservation tool that hides its own preservation
 failures is worth nothing. Details and repro steps: [docs/FINDINGS.md](docs/FINDINGS.md).
 
-## Use it
+## Run from the checkout
+
+Use the pinned development runtime in `.nvmrc` / `.node-version` (Node 22.20.0).
+The package consumer floor is Node 22.12. Dependencies are installed from the lockfile:
 
 ```bash
-claude mcp add therblig -- npx -y -p therblig therblig-mcp --root .
+npm ci
+node backend/cli/bin.mjs read bench/corpus/miwg/C.9.0.bpmn
+node backend/cli/bin.mjs lint bench/corpus/miwg/C.9.0.bpmn
+node backend/cli/bin.mjs explain bench/corpus/miwg/C.9.0.bpmn
 ```
 
-Or as a plugin, which brings a skill along with the server:
+The package is named `therblig`. It retains both CLI entrypoints because they expose
+different workflows: `therblig` reads files, applies primitive patches and produces
+receipts; `treadle` exposes governed intent operations, review, conformance and rendering.
+Until npm publication, invoke their files from the checkout:
 
+```bash
+node backend/cli/main.mjs explain bench/corpus/miwg/C.9.0.bpmn
+node backend/cli/main.mjs apply process.bpmn --op timeout \
+  --args '{"on":"Review","after":"P3D","to":"Escalate","name":"Late"}'
+node backend/cli/main.mjs review as-is.bpmn to-be.bpmn
+node backend/cli/main.mjs render to-be.bpmn --against as-is.bpmn > diff.svg
 ```
-/plugin marketplace add EduardoHOS/therblig-plugin
-/plugin install therblig@therblig
-```
 
-<details>
-<summary>Cursor, VS Code, and anything else that speaks MCP</summary>
+The intent example requires the named nodes in `process.bpmn`. Edits preview by
+default. The governed CLI additionally enforces its `--allow` risk policy when applying
+an operation. Use `--write` only after reviewing the preview.
 
-```json
-{ "mcpServers": { "therblig": { "command": "npx", "args": ["-y", "-p", "therblig", "therblig-mcp", "--root", "."] } } }
-```
+### MCP clients
 
-VS Code uses `servers` as the top-level key rather than `mcpServers`; everything else is
-the same. The server is stdio only and makes no network calls.
+The `therblig-mcp` entrypoint is `backend/mcp/bin.mjs`; run it with Node and `--root`
+pointing to the workspace whose BPMN files the client may access. For example, from
+the checkout: `node backend/mcp/bin.mjs --root .`. Client configuration must use
+absolute paths to the entrypoint and workspace because the client may start elsewhere.
 
-</details>
+The retained `treadle-mcp` entrypoint is `backend/mcp/server.mjs`, which provides the
+governed workflow with handles, proposals, revisions and a publication risk policy.
+The library exposes both MCP factories, `createServer` and `build`. Both servers use
+stdio, with diagnostics on stderr. The plugin scaffold is documented in
+[plugin/README.md](plugin/README.md); its npm-based setup requires package publication.
 
-Five tools:
+The path-addressed server exposes five tools:
 
 | tool | what it gives the model |
 |---|---|
@@ -92,7 +117,7 @@ Five tools:
 | `bpmn_verify` | does it parse and match the five OMG schemas |
 | `bpmn_patch` | edits a file, and refuses if the edit changed anything you did not ask for |
 
-The operations are `add`, `set`, `del`, `connect`, `move` and `message`. `move` and
+Its primitive operations are `add`, `set`, `del`, `connect`, `move` and `message`. `move` and
 `message` are separate verbs rather than flags because the structures differ: lane
 membership lives on the lane, and a message flow belongs to the collaboration rather than
 to either process ([ADR-011](docs/DECISIONS.md)).
@@ -108,12 +133,16 @@ for writing at all. Refused and byte-identical are the same statement.
 
 The write itself goes to a temp file in the same directory and is renamed over the
 target, so an interrupted edit leaves either the old file or the new one, never a
-fragment. That is tested by actually killing the process mid-write.
+fragment. The end-to-end write suite exercises process termination during a write. Revision
+checks detect already-stale bytes; they are not a filesystem lock against a save
+between the check and rename.
 
 ## The receipt
 
+Example commands and illustrative output (revision values depend on the input files):
+
 ```bash
-npx therblig patch orders.bpmn --ops ops.json --write --base-rev a752214b12e7 --receipt
+node backend/cli/bin.mjs patch orders.bpmn --ops ops.json --write --base-rev a752214b12e7 --receipt
 ```
 
 ```
@@ -130,7 +159,7 @@ The receipt is the preservation claim written down so somebody else can check it
 offline, with no key and no network, against the two files it describes:
 
 ```bash
-npx therblig verify --receipt orders.receipt.json orders.before.bpmn orders.bpmn
+node backend/cli/bin.mjs verify --receipt orders.receipt.json orders.before.bpmn orders.bpmn
 ```
 
 ```
@@ -147,14 +176,14 @@ file — no bpmn-js, no DOM, no headless browser, so ADR-009 stays intact. Added
 are drawn in ink, shapes that moved leave a dashed ghost where they were, and everything
 the edit did not touch recedes, so the eye goes to the change.
 
-Honest limit: it emits SVG, and vision models do not read SVG. This is an artifact for a
-pull request and a human reviewer, not a loop that lets an agent look at its own work.
+The renderer emits SVG for reviewers. Clients that require a raster image need a separate
+conversion; the CLI does not provide that conversion.
 
 Or from a terminal:
 
 ```bash
-npx therblig lint orders.bpmn
-npx therblig explain orders.bpmn
+node backend/cli/bin.mjs lint orders.bpmn
+node backend/cli/bin.mjs explain orders.bpmn
 ```
 
 ```
@@ -165,27 +194,43 @@ orders.bpmn
 1 file. 0 errors, 1 warning.
 ```
 
-Every path is confined to `--root`: the extension is checked before the filesystem is
+MCP file access is confined to `--root`: the extension is checked before the filesystem is
 touched, both sides are `realpath`'d so a symlink cannot lead out, and the containment
 test is case-insensitive on Windows. Those tests were written before the handler.
+
+## Local Studio
+
+```bash
+make dev                             # http://localhost:3000
+make dev PORT=3001 WORKSPACE=/absolute/path/to/models
+make build                           # production build of @therblig/studio
+```
+
+The Studio is a local review surface for the workspace’s process library. It opens
+existing files, shows validation and review results, and renders their DI with pan,
+zoom and element selection. The app imports the core in process; it needs no separate
+backend daemon. `frontend/` is a private workspace and is excluded from the published
+CLI/library package. `TREADLE_WORKSPACE` remains the workspace configuration variable.
 
 ## Repo layout
 
 ```
 backend/
-  core/         the functional core — parse, project, patch, place
+  core/         parse, project, patch, place, intent ops, gates, simulate, review, render
   oracle/       validation and semantic diff, no I/O
   io/           paths, revisions, schema validation, the write barrier
   render/       BPMN to SVG, no bpmn-js and no DOM
-  cli/ mcp/     the two callers
+  cli/ mcp/     path-addressed and governed callers
+  contracts/    TypeScript consumer of generated public declarations
   test/         unit · integration · e2e
+frontend/       the private @therblig/studio workspace
 bench/          the benchmark harness
   corpus/       BPMN fixtures + profilers (see corpus/PROVENANCE.md)
   scorer/       the five scoring gates
   probe/        red probes: defects asserted before they are fixed
   tasks/        edit tasks and their assertions
   arms/         the IR projection, patch ops and incremental DI placement
-scripts/        licence guard
+scripts/        development runner, licence guard and package audits
 third_party/    OMG BPMN 2.0 XSD schemas
 docs/           findings, decisions
 ```
@@ -199,7 +244,8 @@ a different measurement quietly.
 ```bash
 npm ci
 npm test            # node --test across backend/test
-npm run check       # lint, 100% core coverage, corpus integrity
+npm run check       # lint, types, core/io coverage, corpus and replay gates
+make build          # production Studio build
 npm run oracle      # lint the whole corpus
 npm run verify:corpus  # every canonical edit on every file, every invariant
 npm run probe       # the one probe that FAILS on purpose, see below
@@ -215,26 +261,20 @@ rather than a bug: moddle does not model XML comments, and ADR-004 chose to warn
 than refuse, because the naive text-editing baseline preserves them for free and refusing
 would make the structured path strictly worse.
 
-## How this gets built
+## Verification and the bake-off
 
-Evidence first, then ship, then study.
+`npm run check` is the required quality gate; `make check` invokes it. Core and I/O
+coverage targets remain 100% for lines, branches and functions. The corpus sweep and
+real CLI/MCP entrypoint tests supplement coverage with preservation and protocol checks.
+Repository and review conventions live in [CLAUDE.md](CLAUDE.md);
+[AGENTS.md](AGENTS.md) routes other agents to that guide.
 
-1. ~~**Truth pass**~~ — done. Corrected the published evidence, pinned the runtime,
-   replaced the licence guard, wrote the red probes.
-2. ~~**Core + oracle**~~ — done. The write-guard is built *separately* from the gates that
-   scored the benchmark; conflating those is how F9 came to be trusted.
-3. ~~**`npx -y -p therblig therblig-mcp`**~~ — done. Read, explain, lint, verify, preview.
-4. ~~**Guarded writes**~~ — done. base_rev, an atomic rename, and a barrier that leaves
-   the file byte-identical when it refuses.
-5. ~~**The preservation receipt**~~ — done. An offline-checkable proof that nothing
-   outside an edit moved, plus a headless SVG a reviewer can look at.
-6. **Distribution** — the two missing operations are in and the plugin is scaffolded.
-   Publishing to npm is the remaining step, and it is deliberately a human decision.
-
-A three-arm LLM comparison was planned first and was deliberately reordered: at n=20 the
-pre-registered analysis has 0.21 power against the effect it was built to detect, so it
-would have returned "no significant difference" whatever the truth. It returns later,
-re-scoped to preservation — the axis nobody else measures.
+The original benchmark compares three arms: a naive text edit, a stronger XML baseline
+with lint/layout repair, and structured tree patches. It has not established that the
+structured API makes an agent more correct. The upstream plan deferred the original
+comparison because its pre-registered n=20 analysis had low power (0.21), and re-scoped
+future study to preservation. Historical pilot failures and useful measurements from
+both branches are retained in [docs/FINDINGS.md](docs/FINDINGS.md).
 
 ## License
 
