@@ -4,11 +4,12 @@ import { cp, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
-const CLI = new URL('../../cli/main.mjs', import.meta.url).pathname;
-const CORPUS = new URL('../../../bench/corpus/', import.meta.url).pathname;
+const CLI = fileURLToPath(new URL('../../cli/main.mjs', import.meta.url));
+const CORPUS = fileURLToPath(new URL('../../../bench/corpus/', import.meta.url));
 
 // Spawn the real entrypoint, from a directory the user might actually be in.
 async function treadle(args, { cwd = CORPUS } = {}) {

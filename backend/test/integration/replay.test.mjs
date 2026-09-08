@@ -4,14 +4,15 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import { applyPatch, parse, placeNew, project, serialize } from '../../core/index.mjs';
 import { byId } from '../../../bench/tasks/tasks.mjs';
 
 const run = promisify(execFile);
-const REPLAY = new URL('../../../bench/harness/replay.mjs', import.meta.url).pathname;
-const CORPUS = new URL('../../../bench/corpus/', import.meta.url).pathname;
+const REPLAY = fileURLToPath(new URL('../../../bench/harness/replay.mjs', import.meta.url));
+const CORPUS = fileURLToPath(new URL('../../../bench/corpus/', import.meta.url));
 
 async function fixture(task) {
   return parse(await readFile(join(CORPUS, task.file), 'utf8'));

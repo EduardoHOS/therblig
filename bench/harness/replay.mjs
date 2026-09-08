@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { parse, project, scoreAll } from '../../backend/core/index.mjs';
 import { byId } from '../tasks/tasks.mjs';
@@ -10,8 +11,8 @@ import { byId } from '../tasks/tasks.mjs';
 // reproducible by anyone with the repository and no API key at all.
 
 // A directory can be passed so a test can score fabricated cells without touching real results.
-const RUNS_ROOT = process.argv[2] ?? new URL('../runs/', import.meta.url).pathname;
-const CORPUS = new URL('../corpus/', import.meta.url).pathname;
+const RUNS_ROOT = process.argv[2] ?? fileURLToPath(new URL('../runs/', import.meta.url));
+const CORPUS = fileURLToPath(new URL('../corpus/', import.meta.url));
 
 async function cells() {
   const found = [];

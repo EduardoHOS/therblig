@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
+import fs, { mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -105,8 +106,8 @@ test('a rename that fails still cleans up its temporary file', async () => {
 test('a path whose parent is a file, not a directory, is refused as such', async () => {
   const { root, target } = await workspace();
 
-  // ENOENT means "not there yet", which is legal for a write target. ENOTDIR means the path is
-  // nonsense, and must surface as itself rather than as a confinement failure.
+  // Platforms can return ENOENT or ENOTDIR for a child under a file. Confinement must
+  // distinguish this from an absent write target and consistently refuse the invalid parent.
   await assert.rejects(confine(root, join(target, 'child.bpmn')), (error) => {
     assert.equal(error.code, 'ENOTDIR');
     return true;
@@ -124,4 +125,49 @@ test('a directory sitting where the temporary goes fails loudly and is not delet
   // not remove something this write did not create.
   assert.deepEqual(await readdir(squatter), []);
   assert.equal(await readFile(target, 'utf8'), xml);
+});
+
+test('confinement rejects a file parent when realpath reports Windows ENOENT semantics', async (context) => {
+  const { root, target, xml } = await workspace();
+  const child = join(target, 'child.bpmn');
+  const originalRealpath = fs.realpath;
+  const failure = Object.assign(new Error('Missing child'), { code: 'ENOENT' });
+  const mocked = context.mock.method(fs, 'realpath', async (path) => {
+    if (path === child) throw failure;
+    return originalRealpath(path);
+  });
+  syncBuiltinESMExports();
+  context.after(() => {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+  });
+
+  await assert.rejects(confine(root, child), { code: 'ENOTDIR', cause: failure });
+  await assert.rejects(writeBpmnAtomic(child, xml, { root }), { code: 'ENOTDIR' });
+  assert.equal(await readFile(target, 'utf8'), xml);
+  assert.deepEqual(await leftovers(root), []);
+});
+
+test('confinement propagates realpath failures that do not mean a missing leaf', async (context) => {
+  const { root, target } = await workspace();
+  const failure = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+  const mocked = context.mock.method(fs, 'realpath', async () => { throw failure; });
+  syncBuiltinESMExports();
+  context.after(() => {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+  });
+
+  await assert.rejects(confine(root, target), (error) => error === failure);
+});
+
+test('an absent file under a real directory can be confined and created atomically', async () => {
+  const { root, xml } = await workspace();
+  const target = join(root, 'created.bpmn');
+  assert.equal(await confine(root, target), join(await realpath(root), 'created.bpmn'));
+
+  await writeBpmnAtomic(target, xml, { root });
+
+  assert.equal(await readFile(target, 'utf8'), xml);
+  assert.deepEqual(await leftovers(root), []);
 });

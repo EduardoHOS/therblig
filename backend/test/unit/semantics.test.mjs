@@ -63,10 +63,10 @@ test('a receive task and a catch event are both things that can wait', async () 
 
 test('the whole corpus is clean under this rule', async () => {
   const { readdir, readFile } = await import('node:fs/promises');
-  const root = new URL('../../../bench/corpus/miwg/', import.meta.url).pathname;
+  const root = new URL('../../../bench/corpus/miwg/', import.meta.url);
 
   for (const name of (await readdir(root)).filter((file) => file.endsWith('.bpmn'))) {
-    const result = await semantics(await readFile(`${root}${name}`, 'utf8'));
+    const result = await semantics(await readFile(new URL(name, root), 'utf8'));
     assert.deepEqual(result.findings, [], name);
   }
 });

@@ -95,7 +95,7 @@ test('a gateway with nowhere to go halts and is reported as a deadlock', async (
 
 test('every MIWG model is either simulated or refused by name, and never guessed at', async () => {
   const { readdir } = await import('node:fs/promises');
-  const root = new URL('../../../bench/corpus/miwg/', import.meta.url).pathname;
+  const root = new URL('../../../bench/corpus/miwg/', import.meta.url);
   const summary = { ran: 0, refused: 0 };
 
   for (const name of (await readdir(root)).filter((file) => file.endsWith('.bpmn'))) {

@@ -4,10 +4,10 @@ import { cp, mkdtemp, readFile, readdir, symlink, writeFile } from 'node:fs/prom
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const SERVER = new URL('../../mcp/server.mjs', import.meta.url).pathname;
-const CORPUS = new URL('../../../bench/corpus/', import.meta.url).pathname;
+const SERVER = fileURLToPath(new URL('../../mcp/server.mjs', import.meta.url));
+const CORPUS = fileURLToPath(new URL('../../../bench/corpus/', import.meta.url));
 
 // Every request in revision 2026-07-28 carries these; there is no initialize handshake.
 const META = {

@@ -2,6 +2,7 @@
 import { cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -14,8 +15,8 @@ import { treadleServer } from './tools.mjs';
 // scoring is replay.mjs's job, offline, so a number in the README can be reproduced by someone
 // who has no key. Nothing here runs from `npm run check`.
 
-const RUNS_ROOT = new URL('../runs/', import.meta.url).pathname;
-const CORPUS = new URL('../corpus/', import.meta.url).pathname;
+const RUNS_ROOT = fileURLToPath(new URL('../runs/', import.meta.url));
+const CORPUS = fileURLToPath(new URL('../corpus/', import.meta.url));
 const SDK_VERSION = JSON.parse(
   await readFile(new URL('../../node_modules/@anthropic-ai/claude-agent-sdk/package.json', import.meta.url), 'utf8'),
 ).version;

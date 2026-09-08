@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import Linter from 'bpmnlint/lib/linter.js';
 
 import { index, parse, serialize } from '../../core/document.mjs';
 
 import { fingerprint, lintClean, parses, scoreAll, xsdValid } from '../../core/gates.mjs';
 import { readFixture } from '../support/fixture.mjs';
+
+// Let the BPMN modules initialize their ESM dependencies before bpmnlint's CommonJS
+// loader requires them; the supported Node 22.12 floor rejects that initialization cycle.
+const { default: Linter } = await import('bpmnlint/lib/linter.js');
 
 // A gate that cannot run must report a failure, never throw: propose() treats every gate the same
 // way, so an exception escaping one of them would abort the whole proposal instead of failing it.

@@ -1,4 +1,4 @@
-import { open, readFile, realpath, rename, unlink } from 'node:fs/promises';
+import { open, readFile, realpath, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 
 import { parse } from '../core/index.mjs';
@@ -18,7 +18,15 @@ export async function confine(root, path) {
   const absolute = isAbsolute(path) ? path : resolve(root, path);
   const real = await realpath(absolute).catch(async (cause) => {
     if (cause.code !== 'ENOENT') throw cause;
-    return join(await realpath(dirname(absolute)), basename(absolute));
+    const parent = await realpath(dirname(absolute));
+    // Windows may report ENOENT for file/child, so a resolved parent alone does not
+    // establish that the leaf can be created. Confirm the parent is a directory.
+    if (!(await stat(parent)).isDirectory()) {
+      const error = new Error(`Parent of "${basename(absolute)}" is not a directory`, { cause });
+      error.code = 'ENOTDIR';
+      throw error;
+    }
+    return join(parent, basename(absolute));
   });
 
   const base = await realpath(root);
