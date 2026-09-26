@@ -4,8 +4,8 @@
 // report the directive as unused and `npm run types` would fail.
 // Resolved the way a consumer of the published package would resolve it: through the emitted
 // declarations, not through the JavaScript they were emitted from.
-import type { Envelope, Operation, Projection, RiskLevel } from 'therblig';
-import { insertAfter, propose, risk } from 'therblig';
+import type { Envelope, Operation, Projection, RiskLevel, Seed } from 'therblig';
+import { allowanceOf, insertAfter, propose, risk, seed } from 'therblig';
 
 declare const ir: Projection;
 
@@ -35,7 +35,17 @@ const bogus: RiskLevel = 'catastrophic';
 // @ts-expect-error insertAfter needs an anchor.
 const missing = insertAfter(ir, { step: { type: 'user' } });
 
+// Creation is a seed: a name in, a document and the ids it minted out.
+const made: Seed = seed({ name: 'Pedido', start: 'Recebido' });
+const startId: string = made.ids.start;
+const allowance: Set<RiskLevel> = allowanceOf('safe,additive,routing');
+
+// @ts-expect-error a seed needs a name.
+const nameless = seed({ start: 'Recebido' });
+
 export const surface = {
+  startId,
+  allowance,
   level,
   plan,
   inverse,
@@ -44,5 +54,5 @@ export const surface = {
   primitives: [add, set, del, connect],
   computed: risk,
   dryRun: propose,
-  unused: [wrong, bogus, missing],
+  unused: [wrong, bogus, missing, nameless],
 };
