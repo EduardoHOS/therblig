@@ -434,6 +434,36 @@ Nicollas has been working under the previous name and should be told rather than
 discover it from a diff.
 
 
+## ADR-013 — Creation is a seed plus the same operations
+
+`bpmn_create` writes the smallest valid process — a start and an end, connected, with
+DI — and nothing else is ever generated from nothing. Growth goes through the named
+operations, each with its gates, exact inverse and computed risk, so a file the agent
+created is held to the same barrier as a file the user inherited.
+
+**Rests on:** Studio F18. A seed built through `applyPatch` and `placeNew` passes all
+five gates at 27 lines; from it the ops built a 10-node process with a gateway, a timer
+and an error handler, five gates green. Two refusals shaped it: a seed holding only a
+start event cannot take a first step (`no-implicit-end`), so the seed is born connected;
+and `branch` without `label` — or without a `name` on the gateway — fails the
+differential lint gate, so the skill says to label. ADR-003 stands: edit-first, and the
+seed is the one exception, sized to be harmless.
+
+**The named ops arrive on the path-addressed server (ADR-010 rev. 2 amended).** One
+tool per op, `bpmn_<op>`, each with the exact argument schema `tools.mjs` declares
+(Studio F15), sharing one stateless handler: read with rev, compile the op, `propose`,
+and on a write require the current `base_rev`, every gate green and a risk within the
+allowance. The handle server keeps its copy for the Studio and the bench until they
+migrate; see DEFERRED.
+
+**The allowance is the server's, in one place.** `allowanceOf` moved to the core beside
+`risk`; the CLI's `--allow`, the binary's `--allow`/`TREADLE_ALLOW` and `bpmn_patch`
+all read it. Creation is outside it: it changes nothing that exists, and `wx` is the
+primitive that cannot overwrite.
+
+**Reverses if:** a caller needs pools, lanes or a collaboration from nothing. That is a
+second seed shape with its own DI, and a decision about what a message flow may cross.
+
 # Studio decision records
 
 These records preserve the Studio branch's design and evidence at `eee02c3`.

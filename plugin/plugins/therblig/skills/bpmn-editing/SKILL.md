@@ -1,12 +1,50 @@
 ---
 name: bpmn-editing
-description: Use when reading, explaining, linting or editing a .bpmn file. Covers what BPMN's structure makes unsafe about ordinary text editing, and how to use the therblig tools instead.
+description: Use when reading, explaining, linting, creating or editing a .bpmn file. Covers what BPMN's structure makes unsafe about ordinary text editing, how to create a process without writing XML, and how to use the therblig tools.
 ---
 
 # Editing BPMN files
 
 A `.bpmn` file is XML, which makes it look editable with the same tools as any other
 text. It is not, for four specific reasons. Each one has cost this project a bug.
+
+## Creating a process
+
+Never write BPMN XML yourself. `bpmn_create` writes the smallest valid process — a named
+start and end, connected, with diagram interchange — and returns `base_rev` and the ids
+it minted. Everything after that is an edit:
+
+```
+bpmn_create       { path: "processos/pedido.bpmn", name: "Pedido", start: "Pedido recebido", end: "Pedido concluído" }
+bpmn_insert_after { path, args: { anchor: <ids.start>, step: { type: "user", name: "Conferir pedido" } }, dry_run: false, base_rev }
+bpmn_branch       { path, args: { anchor: "Conferir_pedido", when: "aprovado", name: "Aprovado?", label: "sim",
+                    yes: [{ type: "service", name: "Separar" }], no: [{ type: "user", name: "Corrigir" }] }, dry_run: false, base_rev }
+bpmn_timeout      { path, args: { on: "Conferir_pedido", after: "P2D", to: <ids.end>, name: "Atrasou" }, dry_run: false, base_rev }
+```
+
+Every write returns `new_rev`; pass it as the next call's `base_rev`. The `minted` list
+in each result holds the ids you can anchor the next step on. The parent directory must
+exist; create it with your own tools first.
+
+Step types: `task`, `user`, `service`, `send`, `receive`, `manual`, `script`, `rule`,
+`subprocess`, `call`; gateways are minted by `bpmn_branch` (exclusive) and `bpmn_parallel`.
+
+## Label what you add
+
+`bpmn_branch` needs `label` for its conditional exit and `name` for the gateway, or the
+lint gate refuses the write (`label-required`). Give every step a `name`. An unlabelled
+model is a worse model, and the gate says so rather than letting it through.
+
+## When to preview, and when the server says no
+
+Editing a file you inherited: call the op with the default `dry_run: true`, read the
+gates and the diff, then write. Growing a file you created in this session: write
+directly; every gate still runs before the rename.
+
+`THB_REQUIRES_APPROVAL` is not retryable. It means the edit's risk (`routing` for a
+gateway or a condition, `destructive` for a removal) is above what this server may
+write alone. Report the edit, its risk and the allowance to the user and stop; they
+restart the server with `--allow` or `TREADLE_ALLOW` if they want it written.
 
 ## Never rewrite the whole file
 
@@ -27,6 +65,14 @@ The tools refuse this: `set` will not write `sourceRef`, `targetRef`, `incoming`
 
 | you want to | operation |
 |---|---|
+| create a process from nothing | `bpmn_create`, then the ops below |
+| add a step after another | `bpmn_insert_after` — it splices the existing flow |
+| a decision with two paths | `bpmn_branch` — with `name` and `label` |
+| work done in parallel | `bpmn_parallel` |
+| a deadline on a step | `bpmn_timeout` |
+| what happens when a step fails | `bpmn_on_error` |
+| skip a step, healing the chain | `bpmn_bypass` (destructive: needs approval) |
+| rename, condition, lane | `bpmn_rename`, `bpmn_guard`, `bpmn_move_to_lane` |
 | add a step between two others | `add` with `between: [a, b]` — it rewires the existing flow for you |
 | connect two nodes in one pool | `connect` |
 | connect two nodes in **different** pools | `message` — only a message flow may cross a pool boundary |

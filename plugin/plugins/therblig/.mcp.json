@@ -1,8 +1,15 @@
 {
   "mcpServers": {
     "therblig": {
-      "command": "npx",
-      "args": ["-y", "-p", "therblig", "therblig-mcp", "--root", "${CLAUDE_PROJECT_DIR}"]
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/../../../backend/mcp/bin.mjs",
+        "--root",
+        "${CLAUDE_PROJECT_DIR}"
+      ],
+      "env": {
+        "TREADLE_ALLOW": "${TREADLE_ALLOW:-safe,additive,routing}"
+      }
     }
   }
 }

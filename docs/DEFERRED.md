@@ -80,3 +80,21 @@ cannot distinguish a result from variance and no percentage may be quoted from t
 **Trigger:** a full run — 20 tasks × 3 arms × N≥3 — with the per-cell budget measured by stratum
 rather than guessed. The prompts should be replaced first, or F11 has to carry the provenance
 caveat in `bench/tasks/TASKS.md`.
+
+## Pools and lanes from nothing
+
+`bpmn_create` seeds one process. A collaboration with pools, lanes and message flows is a
+different seed shape with its own DI, and a decision about what may cross a pool.
+
+**Trigger:** the first request for a new multi-pool process. Until then the agent creates
+the process and the user adds pools in a modeller, which keeps the existing DI.
+
+## Two MCP servers, two io stacks
+
+`therblig-mcp` (path-addressed) now carries every named op; `treadle-mcp` (handles) keeps
+its copy because the Studio and the bench call it, and `backend/io/paths.mjs` and
+`backend/io/bpmn-file.mjs` each confine in their own way.
+
+**Trigger:** the Studio and the bench harness no longer spawn `server.mjs`'s `build`.
+Then `treadle-mcp`, `store.mjs`, `toolsFor` and `bpmn-file.confine` go, and one server
+remains.
