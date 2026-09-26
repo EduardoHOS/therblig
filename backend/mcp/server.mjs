@@ -88,7 +88,6 @@ const guard = (fn) => async (args) => {
 
 // io throws coded plain Errors for the file it creates; the agent needs the taxonomy.
 const CREATE_CODES = {
-  exists: 'THB_EXISTS',
   'not-bpmn': 'THB_NOT_BPMN',
   'path-outside-root': 'THB_OUTSIDE_ROOT',
 };
@@ -269,6 +268,9 @@ export function createServer(root, { allowance = allowanceOf(process.env.TREADLE
     } catch (error) {
       // A missing parent surfaces as the fs error from realpath, whose message carries the
       // absolute path; say what the agent can act on instead.
+      if (error.code === 'EEXIST') {
+        throw new TherbligError('THB_EXISTS', `"${path}" already exists — edit it instead, or pick another path`);
+      }
       if (error.code === 'ENOENT' || error.code === 'ENOTDIR') {
         throw new TherbligError('THB_NOT_FOUND', `The directory of "${path}" does not exist — create it first`);
       }

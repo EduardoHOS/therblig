@@ -84,20 +84,14 @@ function coded(code, message, cause) {
 
 // Create a file that must not exist yet. `wx` is the primitive that cannot overwrite, so there
 // is no temporary and no rename: nothing existed before, so the only thing to protect is the disk
-// after a failure — and the target is unlinked on every path that throws past the open.
+// after a failure — and the target is unlinked on every path that throws past the open. An open
+// that fails (EEXIST, EACCES) propagates as the fs error it is: nothing was created, nothing to undo.
 export async function createBpmn(path, xml, { root }) {
   if (extname(path).toLowerCase() !== '.bpmn') {
     throw coded('not-bpmn', `"${basename(path)}" is not a .bpmn file — a new process is written as .bpmn`);
   }
   const confined = await confine(root, path);
-
-  let handle;
-  try {
-    handle = await open(confined, 'wx');
-  } catch (cause) {
-    if (cause.code !== 'EEXIST') throw cause;
-    throw coded('exists', `"${basename(confined)}" already exists — edit it instead, or pick another path`, cause);
-  }
+  const handle = await open(confined, 'wx');
 
   try {
     try {
