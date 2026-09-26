@@ -50,8 +50,13 @@ import { block } from './registry.mjs';
 import { pruneDI } from './placement.mjs';
 
 export function mintId(byId, base) {
+  // An XML id is an NCName: letters, digits, `_`, `-`, `.`, never starting with a digit.
   const slug =
-    String(base).replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 24) || 'Element';
+    String(base)
+      .replace(/[^A-Za-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')
+      .replace(/^(?=\d)/, '_')
+      .slice(0, 24) || 'Element';
   let id = slug;
   let suffix = 1;
   while (byId.has(id)) id = `${slug}_${++suffix}`;

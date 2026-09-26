@@ -17,18 +17,22 @@ import { McpServer, fromJsonSchema } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 
-import { parse } from '../core/document.mjs';
+import { parse, serialize } from '../core/document.mjs';
+import { allowanceOf, risk } from '../core/ops.mjs';
 import { project } from '../core/projection.mjs';
-import { applyToFile } from '../io/write.mjs';
+import { propose } from '../core/propose.mjs';
+import { seed } from '../core/seed.mjs';
+import { createBpmn } from '../io/bpmn-file.mjs';
+import { applyToFile, atomicWrite } from '../io/write.mjs';
 import { explain } from '../explain.mjs';
 import { parses, xsdValid } from '../io/validate.mjs';
 import { inspect } from '../oracle/inspect.mjs';
 import { message } from '../oracle/invariants.mjs';
-import { readWithRev } from '../io/rev.mjs';
+import { readWithRev, revOf } from '../io/rev.mjs';
 import { confine } from '../io/paths.mjs';
 import { TherbligError } from '../io/errors.mjs';
 import { createStore } from './store.mjs';
-import { toolsFor } from './tools.mjs';
+import { ARGS, OPS, toolsFor } from './tools.mjs';
 
 // Existing treadle clients use handles, revisions, and publish policy. Keep this
 // contract in its own server so therblig's five path-based tools remain stateless.
@@ -82,10 +86,33 @@ const guard = (fn) => async (args) => {
   try { return await fn(args); } catch (e) { return failed(e); }
 };
 
+// io throws coded plain Errors for the file it creates; the agent needs the taxonomy.
+const CREATE_CODES = {
+  'not-bpmn': 'THB_NOT_BPMN',
+  'path-outside-root': 'THB_OUTSIDE_ROOT',
+};
+const asTherblig = (error) =>
+  error instanceof TherbligError
+    ? error
+    : new TherbligError(CREATE_CODES[error.code] ?? 'THB_PARSE_FAILED', error.message);
+
+// bpmn_<op> tool names: the op's camelCase, in the snake_case the other five tools use.
+const toolNameOf = (op) => `bpmn_${op.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)}`;
+
+const refuseAbove = (allowance, level) => {
+  if (allowance.has(level)) return;
+  throw new TherbligError(
+    'THB_REQUIRES_APPROVAL',
+    `Publishing a ${level} edit needs a human — this server allows ${[...allowance].join(', ')}`,
+    { risk: level, allowance: [...allowance] },
+  );
+};
+
 /**
  * @param {string} root absolute, already realpath'd
+ * @param {{allowance?: Set<string>}} [options] the risk levels a write may reach on its own
  */
-export function createServer(root) {
+export function createServer(root, { allowance = allowanceOf(process.env.TREADLE_ALLOW) } = {}) {
   const server = new McpServer({ name: 'therblig', version: '0.1.0' });
   const open = async (path) => {
     const abs = await confine(root, path);
@@ -193,6 +220,13 @@ export function createServer(root) {
     },
   }, guard(async ({ path, ops, dry_run, base_rev }) => {
     const abs = await confine(root, path);
+    // Risk is judged on the primitives as given. An operation `risk` does not know is left for
+    // applyToFile, which refuses it with THB_UNKNOWN_TYPE and the same message it always had.
+    if (dry_run === false) {
+      let level = null;
+      try { level = risk(ops); } catch { level = null; }
+      if (level) refuseAbove(allowance, level);
+    }
     const r = await applyToFile(abs, ops, { baseRev: base_rev ?? null, dryRun: dry_run !== false });
     return json({
       ok: !r.refused,
@@ -206,6 +240,105 @@ export function createServer(root) {
       diagnostics: r.diagnostics.map((d) => ({ code: d.code, severity: d.severity, elements: d.elements, message: message(d) })),
     });
   }));
+
+  server.registerTool('bpmn_create', {
+    description:
+      'Create a new .bpmn file: one process with a named start and end, connected, with diagram ' +
+      'interchange for all three. Refused if the file exists. Grow it with the bpmn_<op> tools, ' +
+      'anchored on the ids this returns.',
+    inputSchema: z.object({
+      path: z.string().describe('Where to write, ending in .bpmn; relative to the server root or absolute inside it. The parent directory must exist.'),
+      name: z.string().min(1).describe('The process name.'),
+      start: z.string().default('Start').describe('Name of the start event.'),
+      end: z.string().default('End').describe('Name of the end event.'),
+      executable: z.boolean().default(false),
+    }),
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  }, guard(async ({ path, name, start, end, executable }) => {
+    let made;
+    try {
+      made = seed({ name, start, end, executable });
+    } catch (error) {
+      throw new TherbligError('THB_OP_REFUSED', error.message, { reason: error.code });
+    }
+    const xml = await serialize(made.document);
+    let written;
+    try {
+      written = await createBpmn(path, xml, { root });
+    } catch (error) {
+      // A missing parent surfaces as the fs error from realpath, whose message carries the
+      // absolute path; say what the agent can act on instead.
+      if (error.code === 'EEXIST') {
+        throw new TherbligError('THB_EXISTS', `"${path}" already exists — edit it instead, or pick another path`);
+      }
+      if (error.code === 'ENOENT' || error.code === 'ENOTDIR') {
+        throw new TherbligError('THB_NOT_FOUND', `The directory of "${path}" does not exist — create it first`);
+      }
+      throw asTherblig(error);
+    }
+    return json({ ok: true, path: written.path, base_rev: written.rev, ids: made.ids });
+  }));
+
+  // One tool per named op. Each carries the exact argument schema tools.mjs declares (Studio
+  // F15: a generic `args` had an agent guessing names), and all of them share one handler.
+  const runOp = async (name, { path, args, dry_run, base_rev }) => {
+    const dryRun = dry_run !== false;
+    const abs = await confine(root, path);
+    const { xml, rev } = await readWithRev(abs);
+    if (!dryRun && !base_rev) throw new TherbligError('THB_REV_REQUIRED');
+    if (base_rev && base_rev !== rev) {
+      throw new TherbligError('THB_STALE_REV', `You read ${base_rev}; the file is now ${rev}.`);
+    }
+
+    const document = await parse(xml);
+    let envelope;
+    let result;
+    try {
+      envelope = OPS[name](project(document.definitions), args);
+      result = await propose(document, envelope.plan);
+    } catch (error) {
+      throw new TherbligError('THB_OP_REFUSED', error.message, { reason: error.code ?? 'operation-failed' });
+    }
+
+    const body = {
+      ok: result.ok, dry_run: dryRun, base_rev: rev, op: envelope.op, risk: envelope.risk,
+      explain: envelope.explain, plan: envelope.plan, inverse: envelope.inverse, minted: envelope.minted,
+      gates: result.gates, diff: result.diff,
+    };
+    if (dryRun) return json(body);
+    if (!result.ok) {
+      const failing = Object.entries(result.gates).filter(([, gate]) => !gate.ok).map(([gate]) => gate);
+      throw new TherbligError('THB_GATE_FAILED', `Failed: ${failing.join(', ')}`, { gates: result.gates });
+    }
+    refuseAbove(allowance, envelope.risk);
+    await atomicWrite(abs, result.xml);
+    return json({ ...body, written: true, new_rev: revOf(Buffer.from(result.xml, 'utf8')) });
+  };
+
+  const opTools = Object.keys(OPS)
+    .map((name) => [toolNameOf(name), name])
+    .sort(([a], [b]) => a.localeCompare(b));
+  for (const [toolName, name] of opTools) {
+    server.registerTool(toolName, {
+      description:
+        `Propose a ${name} edit on a file. A dry run (the default) returns the plan, its exact ` +
+        'inverse, the computed risk, every gate and the measured diff, and writes nothing. With ' +
+        'dry_run false and the base_rev you read, the edit is written if every gate passes and its ' +
+        "risk is within this server's allowance.",
+      inputSchema: fromJsonSchema({
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Path to a .bpmn file, absolute or relative to the server root.' },
+          args: ARGS[name],
+          dry_run: { type: 'boolean', default: true, description: 'true previews and writes nothing. false writes, and then base_rev is required.' },
+          base_rev: { type: 'string', description: 'The revision you were given when you read the file. Required to write.' },
+        },
+        required: ['path', 'args'],
+        additionalProperties: false,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+    }, guard((input) => runOp(name, input)));
+  }
 
   return server;
 }

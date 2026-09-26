@@ -2,6 +2,7 @@
 import { parseArgs } from 'node:util';
 
 import {
+  allowanceOf,
   changesFrom,
   conform,
   diffSanity,
@@ -17,7 +18,7 @@ import {
   xsdValid,
 } from '../core/index.mjs';
 import { readBpmn, writeBpmnAtomic } from '../io/bpmn-file.mjs';
-import { allowanceOf, envelopeFor } from './apply.mjs';
+import { envelopeFor } from './apply.mjs';
 import { explain } from './explain.mjs';
 
 const USAGE = `treadle — read, explain and edit the .bpmn files you already have

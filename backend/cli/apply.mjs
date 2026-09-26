@@ -30,21 +30,10 @@ const OPS = {
   timeout,
 };
 
-const LEVELS = ['safe', 'additive', 'routing', 'destructive'];
-
 function usage(message) {
   const error = new Error(message);
   error.code = 'usage';
   return error;
-}
-
-export function allowanceOf(value) {
-  const allowed = (value ?? 'safe,additive').split(',').map((level) => level.trim());
-  const unknown = allowed.filter((level) => !LEVELS.includes(level));
-  if (unknown.length) {
-    throw usage(`Unknown risk level "${unknown[0]}" — pick from ${LEVELS.join(', ')}`);
-  }
-  return new Set(allowed);
 }
 
 async function planFrom(path, root) {

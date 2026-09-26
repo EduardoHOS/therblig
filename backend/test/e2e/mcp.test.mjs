@@ -53,7 +53,7 @@ console.log('protocol');
 
 const listed = await session([{ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: META } }]);
 const tools = listed.replies[0]?.result?.tools ?? [];
-check('tools/list returns the five tools', tools.length === 5, `got ${tools.map((t) => t.name).join(', ') || 'nothing'}`);
+check('tools/list returns the sixteen tools', tools.length === 16, `got ${tools.map((t) => t.name).join(', ') || 'nothing'}`);
 check('every tool is named bpmn_*', tools.every((t) => t.name.startsWith('bpmn_')), tools.map((t) => t.name).join(', '));
 // SEP-2567 requires tools/list not to vary per connection. Two separate sessions, not
 // one array compared with a copy of itself — which is what this asserted before, and

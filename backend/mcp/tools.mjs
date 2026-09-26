@@ -29,7 +29,7 @@ function refuse(code, message) {
   return error;
 }
 
-const OPS = {
+export const OPS = {
   branch,
   bypass,
   guard,
@@ -59,7 +59,7 @@ const STEP = object(
 // The arguments each op takes, in full. A generic `args: object` throws away the accuracy the
 // schema exists to give: the first valid bench cell watched an agent guess `target`, then `node`,
 // then `id` for bypass, because nothing told it which was right.
-const ARGS = {
+export const ARGS = {
   insertAfter: object(
     { anchor: id('The node to insert after.'), step: STEP, via: id('Which exit, when the anchor has more than one.') },
     ['anchor', 'step'],

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  allowanceOf,
   applyPatch,
   diCoverage,
   insertAfter,
@@ -248,4 +249,20 @@ test('timeout and onError label their handler when given a name', () => {
 
   const unnamed = timeout(ir(), { on: 'B', after: 'P3D', to: 'H' });
   assert.equal('name' in unnamed.plan[0], false);
+});
+
+test('allowanceOf defaults to safe and additive, trims, and refuses an unknown level', () => {
+  assert.deepEqual([...allowanceOf()], ['safe', 'additive']);
+  assert.deepEqual([...allowanceOf(' safe, routing ')], ['safe', 'routing']);
+  assert.throws(() => allowanceOf('safe,catastrophic'), (error) => {
+    assert.equal(error.code, 'unknown-risk-level');
+    assert.match(error.message, /"catastrophic".*safe, additive, routing, destructive/);
+    return true;
+  });
+});
+
+test('risk judges the file API verbs too: move is routing, message is additive', () => {
+  assert.equal(risk([{ op: 'move', id: 'A', lane: 'L' }]), 'routing');
+  assert.equal(risk([{ op: 'message', from: 'A', to: 'B' }]), 'additive');
+  assert.throws(() => risk([{ op: 'teleport' }]), /Unknown operation "teleport"/);
 });

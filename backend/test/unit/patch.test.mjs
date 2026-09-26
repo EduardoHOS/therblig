@@ -337,3 +337,10 @@ test('add creates a boundary without a host, and the projection does not invent 
   assert.equal(node.type, 'boundary');
   assert.equal(node.on, undefined);
 });
+
+test('mintId never starts an id with a digit, because an NCName cannot', async () => {
+  const { mintId } = await import('../../core/patch.mjs');
+  assert.equal(mintId(new Set(), '1st check'), '_1st_check');
+  assert.equal(mintId(new Set(['_1st_check']), '1st check'), '_1st_check_2');
+  assert.equal(mintId(new Set(), 'Fetch score'), 'Fetch_score');
+});

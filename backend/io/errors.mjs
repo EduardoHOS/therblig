@@ -22,14 +22,19 @@ export const CODES = {
   THB_NOT_FOUND_ELEMENT: 'No element with that id is in this file. Read the file to see the ids it actually has.',
   THB_REFUSED: 'The edit was not written because it would have changed more than you asked for. Nothing on disk was touched.',
   THB_WRITE_DISABLED: 'This version previews edits but does not write them. Pass dry_run: true to see the diff.',
+  THB_EXISTS: 'A file is already at that path. Edit it with bpmn_patch or the op tools, or pick another path.',
+  THB_REQUIRES_APPROVAL: 'This server is not allowed to write an edit of that risk on its own. Ask the user, and have them restart the server with --allow or TREADLE_ALLOW naming the level.',
+  THB_GATE_FAILED: 'A gate failed on the proposed result, so nothing was written. Each gate in this result names what it checks; fix the plan and propose again.',
+  THB_OP_REFUSED: 'The operation refused before producing a plan. The reason names the rule and the remedy.',
 };
 
 export class TherbligError extends Error {
   /**
    * @param {keyof typeof CODES} code
    * @param {string} [detail] what specifically went wrong, in the product voice
+   * @param {Record<string, unknown>} [extra] what the caller needs to recover; rides into toResult()
    */
-  constructor(code, detail) {
+  constructor(code, detail, extra = {}) {
     const recovery = CODES[code];
     if (!recovery) throw new Error(`unknown error code "${code}"`);
     // One period between the two clauses — the detail comes from a throw site that
@@ -41,11 +46,12 @@ export class TherbligError extends Error {
     this.code = code;
     this.detail = detail ?? null;
     this.recovery = recovery;
+    this.extra = extra;
   }
 
-  /** The shape every MCP tool returns on failure. */
+  /** The shape every MCP tool returns on failure; `extra` carries what the caller needs to recover. */
   toResult() {
-    return { ok: false, code: this.code, error: this.message };
+    return { ok: false, code: this.code, error: this.message, ...this.extra };
   }
 }
 

@@ -840,3 +840,46 @@ Reproduce:
 ```sh
 node --test backend/test/unit/simulate.test.mjs
 ```
+
+## Studio F18 — a two-node seed grows into a real process, and two gates decide its shape
+
+Measured 2026-09-23 on the local checkout, macOS, Node 22.23.1, Claude Code 2.1.280.
+
+A seed built by the core — start, end, one flow, an empty plane, `placeNew` — serializes to
+27 lines and passes `parses`, `xsdValid`, `references`, `semantics` and `lintClean`, with
+`diCoverage` 3 of 3. From it, through the CLI, `insertAfter` ×2, `branch`, `timeout` and
+`onError` produced a 10-node process in 139 lines with five gates green and an SVG from
+`render`.
+
+Two refusals along the way are the design. On a seed holding only a start event, `add` +
+`connect` of one task is refused with `no-implicit-end`, so the seed is born connected.
+`branch` without `label` is refused with `label-required:Flow_Yes_in` on the seed and on
+MIWG C.9.0 alike, and without a `name` on the gateway with `label-required:xor_split_…`;
+the skill says to give both. The CLI's `--allow routing` then refused an additive
+`parallel`: the flag replaces the allowance rather than extending it, which the MCP binary
+and the skill now state.
+
+**The real runtime.** `claude -p` with `--plugin-dir` pointing at the checkout, in a
+scratch project outside it, tool allowlist `mcp__plugin_therblig_therblig__*`, prompt:
+"Crie o processo Pedido em processos/pedido.bpmn: conferir pedido, depois um gateway
+Aprovado? com separar (sim) e corrigir (não), um prazo de 2 dias na conferência que vai
+para o fim, e um tratamento de erro na conferência." The agent loaded the plugin skill,
+was denied one attempt to `Write` XML directly, and then made six therblig calls:
+`bpmn_create`, `bpmn_insert_after`, `bpmn_branch`, `bpmn_timeout`, `bpmn_on_error`,
+`bpmn_lint` — every write with the rev the previous call returned, no dry run, no
+refusal. Result: 127 lines, 9 nodes (start, end, 2 user, 1 service, 2 xor, 2 boundary),
+`bpmn_lint` 0 errors; `treadle lint` five `ok`; the Studio over that workspace rendered it
+with all gates passing. 13 turns, 45 s, US$0.82.
+
+A second session asked to remove "Corrigir" with `bpmn_bypass`. The op refused before any
+plan existed — `THB_OP_REFUSED`, reason `heal-ambiguous`, because the error handler had
+given that step a second incoming flow — and the agent reported the code and stopped, as
+the skill instructs. The file's revision was `0acc89e8b2d0` before and after. The
+allowance refusal itself (`THB_REQUIRES_APPROVAL` on `routing` and on `del`) is exercised
+by the smoke test below rather than by that session. 6 turns, US$0.37.
+
+Reproduce:
+
+```sh
+node --test backend/test/unit/seed.test.mjs backend/test/smoke/therblig-mcp.test.mjs
+```

@@ -1,10 +1,14 @@
 import { open, readFile, realpath, rename, stat, unlink } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, resolve, sep } from 'node:path';
 
 import { parse } from '../core/index.mjs';
+import { revOf } from './rev.mjs';
 
 // The only place in the backend that touches a filesystem. The core stays pure; everything here
 // exists so that a failed edit can never reach the user's file.
+
+// A cleanup that fails is not the failure being reported.
+const swallow = () => {};
 
 function outside(path) {
   const error = new Error(`Path "${basename(path)}" is outside the workspace`);
@@ -65,9 +69,44 @@ export async function writeBpmnAtomic(path, xml, { root }) {
 
     await rename(temporary, confined);
   } catch (error) {
-    await unlink(temporary).catch(() => {});
+    await unlink(temporary).catch(swallow);
     throw error;
   }
 
   return confined;
+}
+
+function coded(code, message, cause) {
+  const error = new Error(message, cause ? { cause } : undefined);
+  error.code = code;
+  return error;
+}
+
+// Create a file that must not exist yet. `wx` is the primitive that cannot overwrite, so there
+// is no temporary and no rename: nothing existed before, so the only thing to protect is the disk
+// after a failure — and the target is unlinked on every path that throws past the open. An open
+// that fails (EEXIST, EACCES) propagates as the fs error it is: nothing was created, nothing to undo.
+export async function createBpmn(path, xml, { root }) {
+  if (extname(path).toLowerCase() !== '.bpmn') {
+    throw coded('not-bpmn', `"${basename(path)}" is not a .bpmn file — a new process is written as .bpmn`);
+  }
+  const confined = await confine(root, path);
+  const handle = await open(confined, 'wx');
+
+  try {
+    try {
+      await handle.writeFile(xml, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    const bytes = await readFile(confined);
+    await parse(bytes.toString('utf8')).catch((cause) => {
+      throw coded('parse-failed', `Refusing to keep "${basename(confined)}": the result does not parse`, cause);
+    });
+    return { path: confined, rev: revOf(bytes) };
+  } catch (error) {
+    await unlink(confined).catch(swallow);
+    throw error;
+  }
 }

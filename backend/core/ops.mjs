@@ -74,6 +74,9 @@ function outgoing(ir, id) {
 }
 
 function riskOf(operation) {
+  // The file API's two verbs, judged the same way their primitive plans would be.
+  if (operation.op === 'move') return 'routing';
+  if (operation.op === 'message') return 'additive';
   if (!PRIMITIVES.has(operation.op)) throw new Error(`Unknown operation "${operation.op}"`);
   if (operation.op === 'del' || operation.remove) return 'destructive';
   if (operation.op === 'add' || operation.op === 'connect') return 'additive';
@@ -84,6 +87,23 @@ function riskOf(operation) {
 /** @param {import('./patch.mjs').Operation[]} plan @returns {RiskLevel} */
 export function risk(plan) {
   return LEVEL[Math.max(0, ...plan.map((operation) => LEVEL.indexOf(riskOf(operation))))];
+}
+
+/**
+ * The risk levels a caller lets a write reach. Comma-separated, `safe,additive` when absent, and
+ * closed: a level outside LEVEL fails here rather than silently allowing nothing or everything.
+ * @param {string} [value] @returns {Set<RiskLevel>}
+ */
+export function allowanceOf(value) {
+  const allowed = (value ?? 'safe,additive').split(',').map((level) => level.trim());
+  const unknown = allowed.find((level) => !LEVEL.includes(level));
+  if (unknown !== undefined) {
+    throw precondition(
+      'unknown-risk-level',
+      `Unknown risk level "${unknown}" — pick from ${LEVEL.join(', ')}`,
+    );
+  }
+  return new Set(allowed);
 }
 
 function envelope(op, args, { plan, inverse, minted, removes, result, footprint, explain }) {

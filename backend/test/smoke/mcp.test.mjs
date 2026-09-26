@@ -1,69 +1,14 @@
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { cp, mkdtemp, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const SERVER = fileURLToPath(new URL('../../mcp/server.mjs', import.meta.url));
+import { client, META, TREADLE_SERVER as SERVER } from '../support/mcp-client.mjs';
+
 const CORPUS = fileURLToPath(new URL('../../../bench/corpus/', import.meta.url));
-
-// Every request in revision 2026-07-28 carries these; there is no initialize handshake.
-const META = {
-  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
-  'io.modelcontextprotocol/clientInfo': { name: 'treadle-smoke', version: '0.0.0' },
-  'io.modelcontextprotocol/clientCapabilities': {},
-};
-
-// A JSON-RPC client over stdio, so the test drives the real entrypoint the way a client does.
-function client(cwd, server = SERVER) {
-  const child = spawn(process.execPath, [server], { cwd });
-  const pending = new Map();
-  const stdout = [];
-  let stderr = '';
-  let buffer = '';
-  let id = 0;
-
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    buffer += chunk;
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      stdout.push(line);
-      const message = JSON.parse(line);
-      pending.get(message.id)?.(message);
-      pending.delete(message.id);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => {
-    stderr += chunk;
-  });
-
-  const send = (method, params) =>
-    new Promise((resolve) => {
-      const next = ++id;
-      pending.set(next, resolve);
-      child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: next, method, params: { _meta: META, ...params } })}\n`);
-    });
-
-  return {
-    list: () => send('tools/list', {}),
-    call: async (name, args) => {
-      const message = await send('tools/call', { name, arguments: args });
-      if (message.error) return { protocolError: message.error };
-      const { content, isError } = message.result;
-      const text = content[0].text;
-      return { isError: isError ?? false, text, data: isError ? undefined : JSON.parse(text) };
-    },
-    stdout: () => stdout,
-    stderr: () => stderr,
-    close: () => child.kill(),
-  };
-}
 
 async function workspace(fixture = 'handmade/zeebe-roundtrip.bpmn') {
   const cwd = await mkdtemp(join(tmpdir(), 'treadle-mcp-'));
@@ -98,7 +43,7 @@ test('the compatibility entrypoint also serves through a package-bin symlink', {
   const cwd = await workspace();
   const linked = join(cwd, 'treadle-mcp');
   await symlink(SERVER, linked);
-  const mcp = client(cwd, linked);
+  const mcp = client(cwd, { server: linked });
   try {
     const { result } = await mcp.list();
     assert.ok(result.tools.some((tool) => tool.name === 'open'));

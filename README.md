@@ -105,9 +105,10 @@ The retained `treadle-mcp` entrypoint is `backend/mcp/server.mjs`, which provide
 governed workflow with handles, proposals, revisions and a publication risk policy.
 The library exposes both MCP factories, `createServer` and `build`. Both servers use
 stdio, with diagnostics on stderr. The plugin scaffold is documented in
-[plugin/README.md](plugin/README.md); its npm-based setup requires package publication.
+[plugin/README.md](plugin/README.md); it loads from this checkout in place, and
+publication changes one line of it.
 
-The path-addressed server exposes five tools:
+The path-addressed server exposes sixteen tools. Five read and patch:
 
 | tool | what it gives the model |
 |---|---|
@@ -116,6 +117,15 @@ The path-addressed server exposes five tools:
 | `bpmn_lint` | what is wrong, the BPMN rule it breaks, and the fix |
 | `bpmn_verify` | does it parse and match the five OMG schemas |
 | `bpmn_patch` | edits a file, and refuses if the edit changed anything you did not ask for |
+
+One creates, and ten propose the named operations on a file, each with an exact argument
+schema: `bpmn_create`, `bpmn_insert_after`, `bpmn_branch`, `bpmn_parallel`, `bpmn_timeout`,
+`bpmn_on_error`, `bpmn_bypass`, `bpmn_guard`, `bpmn_rename`, `bpmn_move_to_lane`,
+`bpmn_message`. An op tool is a dry run by default; with `dry_run: false` and the
+`base_rev` you read, it writes when every gate passes and the edit's risk is within
+`--allow` / `TREADLE_ALLOW` (default `safe,additive`). `bpmn_create` refuses to overwrite.
+To load the server into another project on this machine without publishing, see
+[plugin/README.md](plugin/README.md).
 
 Its primitive operations are `add`, `set`, `del`, `connect`, `move` and `message`. `move` and
 `message` are separate verbs rather than flags because the structures differ: lane

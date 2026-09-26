@@ -12,6 +12,7 @@
  * @typedef {import('./projection.mjs').IrNode} IrNode
  * @typedef {import('./projection.mjs').IrFlow} IrFlow
  * @typedef {import('./propose.mjs').Proposal} Proposal
+ * @typedef {import('./seed.mjs').Seed} Seed
  */
 
 export { linkFlow, retarget, unlinkFlow } from './adjacency.mjs';
@@ -29,6 +30,7 @@ export {
   xsdValid,
 } from './gates.mjs';
 export {
+  allowanceOf,
   branch,
   bypass,
   guard,
@@ -43,6 +45,7 @@ export {
 } from './ops.mjs';
 export { applyPatch } from './patch.mjs';
 export { propose } from './propose.mjs';
+export { seed } from './seed.mjs';
 export { placeNew, diCoverage, pruneDI } from './placement.mjs';
 export { project } from './projection.mjs';
 export { changesFrom, render } from './render.mjs';
