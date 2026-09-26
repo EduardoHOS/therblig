@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import fs, { mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
+import fs, { chmod, mkdir, mkdtemp, readFile, readdir, realpath, stat, symlink, writeFile } from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { confine, readBpmn, writeBpmnAtomic } from '../../io/bpmn-file.mjs';
+import { confine, createBpmn, readBpmn, writeBpmnAtomic } from '../../io/bpmn-file.mjs';
 import { readFixture } from '../support/fixture.mjs';
 
 async function workspace() {
@@ -171,3 +171,58 @@ test('an absent file under a real directory can be confined and created atomical
   assert.equal(await readFile(target, 'utf8'), xml);
   assert.deepEqual(await leftovers(root), []);
 });
+
+test('createBpmn writes a new file, returns its revision, and never leaves a temporary', async () => {
+  const { root, xml } = await workspace();
+  const { path, rev } = await createBpmn('new.bpmn', xml, { root });
+
+  assert.equal(await readFile(path, 'utf8'), xml);
+  assert.match(rev, /^[0-9a-f]{12}$/);
+  assert.deepEqual(await leftovers(root), []);
+});
+
+test('createBpmn refuses to overwrite and leaves the existing bytes alone', async () => {
+  const { root, target, xml } = await workspace();
+  await assert.rejects(createBpmn(target, '<other/>', { root }), (error) => {
+    assert.equal(error.code, 'exists');
+    assert.match(error.message, /already exists/);
+    return true;
+  });
+  assert.equal(await readFile(target, 'utf8'), xml);
+});
+
+test('createBpmn refuses a path outside the root, a non-.bpmn name, and a missing parent', async () => {
+  const { root, xml } = await workspace();
+  await assert.rejects(createBpmn(join(root, '..', 'escape.bpmn'), xml, { root }), /outside the workspace/);
+  await assert.rejects(createBpmn('seed.xml', xml, { root }), (error) => {
+    assert.equal(error.code, 'not-bpmn');
+    return true;
+  });
+  await assert.rejects(createBpmn(join('nowhere', 'seed.bpmn'), xml, { root }), (error) => {
+    assert.equal(error.code, 'ENOENT');
+    return true;
+  });
+});
+
+test('createBpmn removes what it wrote when the bytes do not parse back', async () => {
+  const { root } = await workspace();
+  const target = join(root, 'broken.bpmn');
+  await assert.rejects(createBpmn(target, '<nope/>', { root }), /does not parse/);
+  await assert.rejects(stat(target), { code: 'ENOENT' });
+});
+
+test(
+  'createBpmn surfaces a failure to open that is not EEXIST',
+  { skip: process.platform === 'win32' || process.getuid?.() === 0 },
+  async () => {
+    const { root, xml } = await workspace();
+    const locked = join(root, 'locked');
+    await mkdir(locked);
+    await chmod(locked, 0o500);
+    try {
+      await assert.rejects(createBpmn(join('locked', 'seed.bpmn'), xml, { root }), { code: 'EACCES' });
+    } finally {
+      await chmod(locked, 0o700);
+    }
+  },
+);

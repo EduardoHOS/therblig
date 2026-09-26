@@ -6,6 +6,7 @@
 // so it is where a server is now supposed to talk anyway. A single stray console.log in
 // this package corrupts the stream, which is what the stdout-purity CI job checks.
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { allowanceOf } from '../core/ops.mjs';
 import { resolveRoot } from '../io/paths.mjs';
 import { createServer } from './server.mjs';
 
@@ -18,18 +19,27 @@ const valueOf = (name) => {
 if (argv.includes('--help')) {
   process.stderr.write(
     'therblig-mcp — BPMN 2.0 over MCP, stdio.\n\n' +
-    '  --root <dir>   directory the server may read AND WRITE (default: cwd)\n\n' +
+    '  --root <dir>     directory the server may read AND WRITE (default: cwd)\n' +
+    '  --allow <list>   risk levels a write may reach: safe, additive, routing, destructive\n' +
+    '                   (default: safe,additive; also read from TREADLE_ALLOW)\n\n' +
     'Register with Claude Code:\n' +
     '  claude mcp add therblig -- npx -y therblig-mcp --root /path/to/project\n');
   process.exit(0);
 }
 
 const root = await resolveRoot(valueOf('--root') ?? process.cwd());
-process.stderr.write(`therblig-mcp: serving ${root}\n`);
+let allowance;
+try {
+  allowance = allowanceOf(valueOf('--allow') ?? process.env.TREADLE_ALLOW);
+} catch (error) {
+  process.stderr.write(`therblig-mcp: ${error.message}\n`);
+  process.exit(1);
+}
+process.stderr.write(`therblig-mcp: serving ${root}, allowing ${[...allowance].join(',')}\n`);
 
 // legacy: 'serve' is the default and is what carries 2025-era clients. Measured
 // 2026-09-04 (F14): one factory answers both a 2025 initialize handshake and a
 // 2026-07-28 opening that has no handshake at all, with no branching here.
-await serveStdio(() => createServer(root), {
+await serveStdio(() => createServer(root, { allowance }), {
   onerror: (e) => process.stderr.write(`therblig-mcp: ${e.message}\n`),
 });
